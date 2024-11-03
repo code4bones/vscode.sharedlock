@@ -1,6 +1,6 @@
 
-dist
+# dist
 src
-# out
+out
 node_modules
 .vscode

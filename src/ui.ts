@@ -1,4 +1,4 @@
-import {ExtensionContext, StatusBarAlignment,StatusBarItem,window, ThemeColor} from "vscode";
+import {ExtensionContext, StatusBarAlignment,StatusBarItem,window, ThemeColor } from "vscode";
 import { codicons } from "vscode-ext-codicons";
 import { Storage } from "./storage";
 
@@ -8,7 +8,7 @@ import { LockMessage } from "./types";
 export class StatusBar {
     private item:StatusBarItem;
     private ctx: ExtensionContext;
-    
+
     constructor(ctx:ExtensionContext) {
         this.ctx = ctx;
         this.item = window.createStatusBarItem(C.statusBarID,StatusBarAlignment.Right);
@@ -21,7 +21,6 @@ export class StatusBar {
     }
 
     update(st:C.LockState,msg?:LockMessage) {
-        console.log("UPDATE STATUS",st);
         if ( !window.activeTextEditor  ) {
             this.item.hide();
             return;
@@ -51,7 +50,7 @@ export class Controller {
 
     
     constructor(ctx:ExtensionContext) {
-        this._storage = new Storage();
+        this._storage = new Storage(ctx);
         this.statusBar = new StatusBar(ctx);
         this.statusBar.update(C.LockState.Unlocked);
         ctx.subscriptions.push(this.statusBar,this.storage);

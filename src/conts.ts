@@ -3,6 +3,7 @@ const name = "sharedlock";
 const statusBarID = `${name}.statusBar`;
 const statusBarAction = `${name}.indicatorAction`;
 const locksViewID = `${name}.locksView`;
+const channelID = `${name}.bus`;
 
 export enum LockCommands {
     updateLock = `${name}.updateLock`,
@@ -24,5 +25,6 @@ export {
     name,
     statusBarID,
     statusBarAction,
-    locksViewID
+    locksViewID,
+    channelID
 };

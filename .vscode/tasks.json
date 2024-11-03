@@ -11,10 +11,15 @@
 			"presentation": {
 				"reveal": "never"
 			},
+			"dependsOn":"compile",
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			}
+		},{
+			"label": "compile",
+			"type":"npm",
+			"script": "compile"
 		}
 	]
 }

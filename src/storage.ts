@@ -2,9 +2,9 @@ import Redis, {RedisOptions } from "ioredis";
 import { commands } from "vscode";
 import * as vs from "vscode";
 import * as os from  'os';
-import { LockCommands, LockState } from "./conts";
+import { LockCommands, LockState, channelID } from "./conts";
 import { Tag,LockMessage } from "./types";
-
+import { logger } from "./logger";
 
 export class Storage {
     private sub:Redis;
@@ -25,7 +25,7 @@ export class Storage {
         };
     }
 
-    constructor(/*ctx:ExtensionContext*/) {        
+    constructor(_ctx:vs.ExtensionContext) {        
         
         const host = vs.workspace.getConfiguration().get("redisHost") as string;
         const port = parseInt(vs.workspace.getConfiguration().get("redisPort")!);
@@ -45,18 +45,22 @@ export class Storage {
         this.pub = new Redis(connectOpts);
         this.sub.on("connect",()=>{
             console.log("*** CONNECTED ****");
+            logger.info(`[redis]: Connection made to ${host}:${port} with auth ${username}/${password}`);
+            this.sub.subscribe(channelID,(err,count) => {
+                if ( err ){
+                    logger.error(`[redis] Failed to subscribe to channed ${channelID}`,err.message);
+                    console.error("Cannot subscribe !",err);
+                } else { 
+                    logger.info(`[redis] Message bus started on ${channelID}`);
+                    console.log("Subscribed",count);
+                }
+            });
+            this.sub.on("message",(channel,msg)=>{
+                this.onMessage(JSON.parse(msg));
+            });            
         });
-        const channel = "ch1";
-        this.sub.subscribe(channel,(err,count) => {
-            if ( err ){
-                console.error("Cannot subscribe !",err);
-            } else { 
-                console.log("Subscribed",count);
-            }
-        });
-        this.sub.on("message",(channel,msg)=>{
-            this.onMessage(JSON.parse(msg));
-            console.log(`${channel} ==> `,msg);
+        this.sub.on("error",(e)=>{
+            logger.error(`[redis]: ${e.name}:${e.message}`);
         });
         vs.window.onDidChangeActiveTextEditor((_e)=>{
             this.setTabStatus();
@@ -71,7 +75,6 @@ export class Storage {
             const isOwner = locked && this.isMe(check);
             vs.commands.executeCommand('setContext','sharedlock.state',locked ? 'locked':'unlocked');
             vs.commands.executeCommand('setContext','sharedlock.isOwner',isOwner);
-
             console.log(`Set context: ${key}`,locked);
         }
     }
@@ -99,6 +102,7 @@ export class Storage {
 
     async onMessage(msg:LockMessage) {
         console.log("LOCKED MESSAGE !",msg);
+        logger.debug('[redis]: Message',msg);
         const key = await this.getFileTag();
         if ( key === msg.file ) {
             if ( msg.state == LockState.Locked ) {
@@ -126,6 +130,7 @@ export class Storage {
             this.pub.del(m.file);
             this.pub.publish("ch1",JSON.stringify({state:LockState.Unlocked,file:m.file,tag:m.tag}));
         });
+        logger.info(`Wiped ${wiped.length} locksa`);
     }
 
     async ctxUnlock(msg:LockMessage) {
@@ -145,6 +150,7 @@ export class Storage {
     }
 
     set(key:string,obj:Tag) {
+        logger.debug(`Locking file ${key}`);
         return this.pub.set(key,JSON.stringify(obj));
     }
 
@@ -159,11 +165,17 @@ export class Storage {
     }
 
     del(key:string) {
+        logger.debug(`Release file ${key}`);
         return this.pub.del(key);
     }
 
     exists(key:string) {
         return this.pub.exists(key);
+    }
+
+    publish(obj:object) {
+        logger.debug(`[redis]: Publish`,obj);
+        this.pub.publish(channelID,JSON.stringify(obj));
     }
 
     isMe(tag:Tag) {
@@ -179,9 +191,9 @@ export class Storage {
         if ( state == LockState.Locked ) {
             this.set(key,this.tag);
         } else {
-            this.pub.del(key);
+            this.del(key);
         }
-        this.pub.publish("ch1",JSON.stringify({state,file:key,tag:this.tag}));
+        this.publish({state,file:key,tag:this.tag});
         this.setContext();
     }
 
