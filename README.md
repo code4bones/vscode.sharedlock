@@ -4,7 +4,7 @@
 
 ## Installation
 
-Install from vscode marketplace ![SharedLock](https://marketplace.visualstudio.com/items?itemName=code4bones.sharedlock).
+Install from vscode marketplace [SharedLock](https://marketplace.visualstudio.com/items?itemName=code4bones.sharedlock).
 
 ## Setup
 
