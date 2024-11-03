@@ -1,18 +1,15 @@
-import Redis from "ioredis";
+import Redis, {RedisOptions } from "ioredis";
 import { commands } from "vscode";
 import * as vs from "vscode";
 import * as os from  'os';
-// import * as fs from 'fs';
 import { LockCommands, LockState } from "./conts";
 import { Tag,LockMessage } from "./types";
 import { GitExtension } from "./git";
-// import * as path from 'path';
 
 export class Storage {
     private sub:Redis;
     private pub:Redis;
     private tag:Tag;
-    private items:LockMessage[];
 
     _onDidLockChanged:vs.EventEmitter<LockMessage[]>;
 
@@ -30,11 +27,22 @@ export class Storage {
 
     constructor(/*ctx:ExtensionContext*/) {        
         
+        const host = vs.workspace.getConfiguration().get("redisHost") as string;
+        const port = parseInt(vs.workspace.getConfiguration().get("redisPort")!);
+        const db   = parseInt(vs.workspace.getConfiguration().get("redisDatabaseNumber")!);
+        const username = vs.workspace.getConfiguration().get("redisUsername") as string;
+        const password = vs.workspace.getConfiguration().get("resisPassword") as string;
+        const connectOpts : RedisOptions = {
+            host,port,db,username,password,
+            connectionName:"SHLCK",
+        };
+
+        console.log("Config",connectOpts);
+
         this._onDidLockChanged = new vs.EventEmitter<LockMessage[]>();
-        this.items = [];
         this.tag = this.getTag();
-        this.sub = new Redis();
-        this.pub = new Redis();
+        this.sub = new Redis(connectOpts);
+        this.pub = new Redis(connectOpts);
         this.sub.on("connect",()=>{
             console.log("*** CONNECTED ****");
         });
@@ -50,11 +58,6 @@ export class Storage {
             this.onMessage(JSON.parse(msg));
             console.log(`${channel} ==> `,msg);
         });
-        /*
-        vs.window.tabGroups.onDidChangeTabs((e)=>{
-            this.onChangeTabs(e);
-        });
-        */
         vs.window.onDidChangeActiveTextEditor((_e)=>{
             this.setTabStatus();
         });
@@ -71,24 +74,6 @@ export class Storage {
 
             console.log(`Set context: ${key}`,locked);
         }
-    }
-
-    async onChangeTabs(e:vs.TabChangeEvent) {
-            const {opened,closed,changed} = e;
-            opened.forEach((tab)=>{
-                console.log("OPEN",tab.label);
-                // this.tryLock(tab);
-            });
-            changed.forEach((tab)=>{
-                console.log("Changed",tab.label);
-                this.setTabStatus();
-                // commands.executeCommand(LockCommands.updateLock,tab.label);
-                // this.tryLock(tab);
-            });            
-            closed.forEach((tab)=>{
-                console.log("Close",tab.label);
-                // this.tryUnlock(tab);
-            });
     }
 
     async setTabStatus() {

@@ -2,15 +2,15 @@
 	"name": "sharedlock",
 	"displayName": "SharedLock",
 	"description": "Sharing file locks in workspace files via network",
-	"version": "0.0.1",
+	"version": "0.0.3",
 	"publisher": "code4bones",
 	"icon": "resources/icons/logo.png",
-	"repository": { 
+	"repository": {
 		"type": "git",
 		"url": "https://github.com/code4bones/vscode.sharedlock.git"
 	},
-	"bugs":{
-		"url":"https://github.com/code4bones/vscode.sharedlock/issues",
+	"bugs": {
+		"url": "https://github.com/code4bones/vscode.sharedlock/issues",
 		"email": "p.olesov@code4bones.online"
 	},
 	"engines": {
@@ -28,8 +28,7 @@
 		"Files",
 		"Locks"
 	],
-	"extensionDependencies": [
-	],
+	"extensionDependencies": [],
 	"activationEvents": [
 		"onStartupFinished"
 	],
@@ -48,11 +47,13 @@
 					"group": "sharedlock"
 				}
 			],
-			"view/title": [{
-				"command": "sharedlock.wipeLocked",
-				"group": "navigation@0",
-				"when": "view == sharedlock.locksView"
-			}],
+			"view/title": [
+				{
+					"command": "sharedlock.wipeLocked",
+					"group": "navigation@0",
+					"when": "view == sharedlock.locksView"
+				}
+			],
 			"view/item/context": [
 				{
 					"when": "viewItem == owned",
@@ -69,7 +70,7 @@
 			{
 				"command": "sharedlock.wipeLocked",
 				"title": "Отпустить файлы",
-				"icon":"resources/icons/wipe.png"
+				"icon": "resources/icons/wipe.png"
 			},
 			{
 				"command": "sharedlock.lock",
@@ -93,11 +94,13 @@
 			}
 		],
 		"views": {
-			"explorer": [{
-				"id": "sharedlock.locksView",
-				"name": "SharedLocks",
-				"type": "tree"
-		}]
+			"explorer": [
+				{
+					"id": "sharedlock.locksView",
+					"name": "SharedLocks",
+					"type": "tree"
+				}
+			]
 		},
 		"colors": [
 			{
@@ -128,36 +131,37 @@
 				}
 			}
 		],
-		"configuration":[{
-				"id":"sharedlock.redis",
+		"configuration": [
+			{
 				"title": "SharedLock",
-				"order": 0,
+				"type": "object",
 				"properties": {
-						"sharedlock-redis.host":{								
-							"title":"Host",
-							"type":"string",
-							"default":"127.0.0.1",
-							"order": 0
-						},
-						"sharedlock-redis.port":{
-							"type":"integer",
-							"default":6379,
-							"order": 1
-						},
-						"sharedlock-redis.db":{
-							"type":"array",
-							"items": {
-								"type":"integer",
-								"enum": [1,2,3,4,5,6,7,8,9,10]
-							},
-							"order": 2
-						},
-						"sharedlock-redis.username":{
-							"type":"string"
-						},
-						"sharedlock-redis.password":{
-							"type":"string"
-						}
+					"redisHost": {
+						"title": "Host",
+						"type": "string",
+						"default": "127.0.0.1",
+						"order": 1,						
+						"markdownDescription": "Redis server name or local instance"
+					},
+					"redisPort": {
+						"type": "integer",
+						"default": 6379,
+						"order": 2
+					},
+					"redisDatabaseNumber": {
+						"type": "integer",
+						"default": 1,
+						"order": 3,
+						"markdownDeprecationMessage": "All memebers in project must set the same value"
+					},
+					"redisUsername": {
+						"type": "string",
+						"order": 4
+					},
+					"redisPassword": {
+						"type": "string",
+						"order": 5
+					}
 				}
 			}
 		]
@@ -169,8 +173,8 @@
 		"watch": "tsc -watch -p ./",
 		"package1": "npm run check-types && node esbuild.js --production",
 		"build": "node esbuild.js --production",
-		"package":"vsce package",
-		"prepackage":"npm run build"
+		"package": "vsce package",
+		"prepackage": "npm run build"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.13.0",
@@ -184,6 +188,7 @@
 	},
 	"dependencies": {
 		"ioredis": "^5.4.1",
+		"redis": "^4.7.0",
 		"vscode-ext-codicons": "^1.6.0"
 	}
 }
