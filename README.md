@@ -17,5 +17,5 @@
 
 ## Demos
 
-    [![One](./resources/images/demo.gif)]
+[![Demo](./resources/images/demo.gif)]
 
