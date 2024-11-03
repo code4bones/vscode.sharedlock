@@ -15,6 +15,7 @@
     2. Each team member need to set identical redis instance, and DB number
 
 
-## How it works
+## Demos
 
+    ![One](resources/images/demo.gif)
 

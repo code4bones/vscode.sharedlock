@@ -130,3 +130,4 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+sharedlock-0.2.7.vsix

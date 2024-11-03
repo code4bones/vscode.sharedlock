@@ -2,7 +2,7 @@
 	"name": "sharedlock",
 	"displayName": "SharedLock",
 	"description": "Sharing file locks in workspace files via network",
-	"version": "0.2.6",
+	"version": "0.2.7",
 	"publisher": "code4bones",
 	"icon": "resources/icons/logo.png",
 	"repository": {
