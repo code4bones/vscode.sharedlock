@@ -30,7 +30,7 @@
 	],
 	"extensionDependencies": [],
 	"activationEvents": [
-		"*"
+		"onStartupFinished"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -148,11 +148,11 @@
 						"default": 6379,
 						"order": 2
 					},
-					"redisDatabaseNumber": {
+					"redisDB": {
 						"type": "integer",
 						"default": 1,
 						"order": 3,
-						"markdownDeprecationMessage": "All memebers in project must set the same value"
+						"markdownDescription": "All memebers in project must set the same value"
 					},
 					"redisUsername": {
 						"type": "string",

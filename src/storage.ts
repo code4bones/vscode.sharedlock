@@ -4,7 +4,7 @@ import * as vs from "vscode";
 import * as os from  'os';
 import { LockCommands, LockState } from "./conts";
 import { Tag,LockMessage } from "./types";
-import { GitExtension } from "./git";
+
 
 export class Storage {
     private sub:Redis;
@@ -29,7 +29,7 @@ export class Storage {
         
         const host = vs.workspace.getConfiguration().get("redisHost") as string;
         const port = parseInt(vs.workspace.getConfiguration().get("redisPort")!);
-        const db   = parseInt(vs.workspace.getConfiguration().get("redisDatabaseNumber")!);
+        const db   = parseInt(vs.workspace.getConfiguration().get("redisDB")!);
         const username = vs.workspace.getConfiguration().get("redisUsername") as string;
         const password = vs.workspace.getConfiguration().get("resisPassword") as string;
         const connectOpts : RedisOptions = {
@@ -247,6 +247,7 @@ export class Storage {
         */
     }
 
+    /*
     async getGIT(file:vs.Uri) {
         const gitExtension = vs.extensions?.getExtension<GitExtension>('vscode.git')?.exports;
         const git = gitExtension?.getAPI(1);
@@ -279,8 +280,8 @@ export class Storage {
                 console.log(`>>>>>>>>>>>>>>>>> ${f.uri}`,cfg);
             });
         });
-        */
     }
+    */
 
     public dispose() {
         console.log("Killing connection");
