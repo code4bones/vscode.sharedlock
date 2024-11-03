@@ -2,7 +2,7 @@
 	"name": "sharedlock",
 	"displayName": "SharedLock",
 	"description": "Sharing file locks in workspace files via network",
-	"version": "0.0.3",
+	"version": "0.1.0",
 	"publisher": "code4bones",
 	"icon": "resources/icons/logo.png",
 	"repository": {
@@ -167,14 +167,15 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
 		"lint": "eslint",
 		"watch": "tsc -watch -p ./",
 		"package1": "npm run check-types && node esbuild.js --production",
 		"build": "node esbuild.js --production",
 		"package": "vsce package",
-		"prepackage": "npm run build"
+		"prepackage": "npm run build",
+		"publish": "vsce publish minor",
+		"prepublish": "npm run compile"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.13.0",
