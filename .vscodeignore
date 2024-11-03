@@ -1,0 +1,6 @@
+
+dist
+src
+# out
+node_modules
+.vscode

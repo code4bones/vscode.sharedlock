@@ -1,0 +1,173 @@
+{
+	"name": "sharedlock",
+	"displayName": "SharedLock",
+	"description": "Locks files via network",
+	"version": "0.0.1",
+	"publisher": "code4bones",
+	"repository": "https://github.com/Microsoft/vscode-extension-samples/helloworld-sample",
+	"engines": {
+		"vscode": "^1.74.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"extensionDependencies": [
+		"vscode.git"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"menus": {
+			"editor/title/context": [
+				{
+					"when": "sharedlock.state == 'locked' && sharedlock.isOwner",
+					"command": "sharedlock.unlock",
+					"group": "sharedlock"
+				},
+				{
+					"when": "sharedlock.state != 'locked'",
+					"command": "sharedlock.lock",
+					"group": "sharedlock"
+				}
+			],
+			"view/title": [{
+				"command": "sharedlock.wipeLocked",
+				"group": "navigation@0",
+				"when": "view == sharedlock.locksView"
+			}],
+			"view/item/context": [
+				{
+					"when": "viewItem == owned",
+					"command": "sharedlock.ctxUnlock",
+					"group": "sharedlock"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "sharedlock.toggleLock",
+				"title": "Toggle Lock"
+			},
+			{
+				"command": "sharedlock.wipeLocked",
+				"title": "Отпустить файлы",
+				"icon":"resources/icons/wipe.png"
+			},
+			{
+				"command": "sharedlock.lock",
+				"title": "Занять файл"
+			},
+			{
+				"command": "sharedlock.unlock",
+				"title": "Отпустить файл"
+			},
+			{
+				"command": "sharedlock.ctxUnlock",
+				"title": "Отпустить файл"
+			},
+			{
+				"command": "sharedlock.ctxOpen",
+				"title": "Открыть файл"
+			},
+			{
+				"command": "sharedlock.toggle",
+				"title": "Переключить владение"
+			}
+		],
+		"views": {
+			"explorer": [{
+				"id": "sharedlock.locksView",
+				"name": "SharedLocks",
+				"type": "tree"
+		}]
+		},
+		"colors": [
+			{
+				"id": "sharedlock.lockedFG",
+				"description": "Locked FG",
+				"defaults": {
+					"dark": "statusBar.foreground",
+					"light": "statusBar.foreground",
+					"highContrast": "statusBar.foreground"
+				}
+			},
+			{
+				"id": "sharedlock.unlockedFG",
+				"description": "Unlocked FG",
+				"defaults": {
+					"dark": "statusBar.foreground",
+					"light": "statusBar.foreground",
+					"highContrast": "statusBar.foreground"
+				}
+			},
+			{
+				"id": "sharedlock.unlockedFG",
+				"description": "Unlocked FG",
+				"defaults": {
+					"dark": "statusBar.foreground",
+					"light": "statusBar.foreground",
+					"highContrast": "statusBar.foreground"
+				}
+			}
+		],
+		"configuration":[{
+				"id":"sharedlock.redis",
+				"title": "SharedLock",
+				"order": 0,
+				"properties": {
+						"sharedlock-redis.host":{								
+							"title":"Host",
+							"type":"string",
+							"default":"127.0.0.1",
+							"order": 0
+						},
+						"sharedlock-redis.port":{
+							"type":"integer",
+							"default":6379,
+							"order": 1
+						},
+						"sharedlock-redis.db":{
+							"type":"array",
+							"items": {
+								"type":"integer",
+								"enum": [1,2,3,4,5,6,7,8,9,10]
+							},
+							"order": 2
+						},
+						"sharedlock-redis.username":{
+							"type":"string"
+						},
+						"sharedlock-redis.password":{
+							"type":"string"
+						}
+				}
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"lint": "eslint",
+		"watch": "tsc -watch -p ./",
+		"package1": "npm run check-types && node esbuild.js --production",
+		"build": "node esbuild.js --production",
+		"package":"vsce package",
+		"prepackage":"npm run build"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.13.0",
+		"@stylistic/eslint-plugin": "^2.9.0",
+		"@types/node": "^20",
+		"@types/vscode": "^1.73.0",
+		"esbuild": "^0.24.0",
+		"eslint": "^9.13.0",
+		"typescript": "^5.6.2",
+		"typescript-eslint": "^8.11.0"
+	},
+	"dependencies": {
+		"ioredis": "^5.4.1",
+		"vscode-ext-codicons": "^1.6.0"
+	}
+}
