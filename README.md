@@ -1,6 +1,20 @@
-# vscode.sharedlock
-VSCode ext. for sharing file locks in workspace files via network
+# SharedLock - File modification guard for team development
 
-All members must use the same redis instance/db 
+#### Used to acquire ownership of file(s) inside common project 
 
 [![Logo](./resources/icons/logo.png)](https://marketplace.visualstudio.com/items?itemName=code4bones.sharedlock)
+
+
+## Installation
+
+    Install from vscode marketplace [SharedLock](https://marketplace.visualstudio.com/items?itemName=code4bones.sharedlock).
+
+## Setup
+
+    1. Open extension settings and setup common redis connection params
+    2. Each team member need to set identical redis instance, and DB number
+
+
+## How it works
+
+
