@@ -1,9 +1,8 @@
-# SharedLock - File modification guard for team development
+# SharedLock - File Modification Guard
 
-#### Used to acquire ownership of file(s) inside common project 
+#### Used to acquire ownership of file(s) inside common to all team members project 
 
 [![Logo](./resources/icons/logo.png)](https://marketplace.visualstudio.com/items?itemName=code4bones.sharedlock)
-
 
 ## Installation
 
@@ -17,5 +16,15 @@
 
 ## Demos
 
-[![Demo](./resources/images/demo.gif)]
+![Demo](./resources/images/demo.gif)
+
+
+## How it works
+
+    For preventing merge confilicts while editing same file, developer can lock the file, so other team members
+    cannot edit it, until first developer releases the file
+
+    This works inside identical project source tree ( i.e. cloned repo of same project, but doen't care abount branch),
+    Locks works on [Workspace]/**/* files.
+
 

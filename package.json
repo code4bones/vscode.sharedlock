@@ -2,7 +2,7 @@
 	"name": "sharedlock",
 	"displayName": "SharedLock",
 	"description": "Sharing file locks in workspace files via network",
-	"version": "0.2.7",
+	"version": "0.2.8",
 	"publisher": "code4bones",
 	"icon": "resources/icons/logo.png",
 	"repository": {
@@ -68,28 +68,28 @@
 			},
 			{
 				"command": "sharedlock.wipeLocked",
-				"title": "Отпустить файлы",
+				"title": "Wipe Owned Files",
 				"icon": "resources/icons/wipe.png"
 			},
 			{
 				"command": "sharedlock.lock",
-				"title": "Занять файл"
+				"title": "Lock File"
 			},
 			{
 				"command": "sharedlock.unlock",
-				"title": "Отпустить файл"
+				"title": "Release File Lock"
 			},
 			{
 				"command": "sharedlock.ctxUnlock",
-				"title": "Отпустить файл"
+				"title": "Release File Lock"
 			},
 			{
 				"command": "sharedlock.ctxOpen",
-				"title": "Открыть файл"
+				"title": "Open File"
 			},
 			{
 				"command": "sharedlock.toggle",
-				"title": "Переключить владение"
+				"title": "Toggle Lock"
 			}
 		],
 		"views": {
