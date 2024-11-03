@@ -2,9 +2,11 @@ import Redis, {RedisOptions } from "ioredis";
 import { commands } from "vscode";
 import * as vs from "vscode";
 import * as os from  'os';
+import * as path from 'path';
 import { LockCommands, LockState, channelID } from "./conts";
 import { Tag,LockMessage } from "./types";
 import { logger } from "./logger";
+import { existsSync } from "fs";
 
 export class Storage {
     private sub:Redis;
@@ -104,7 +106,7 @@ export class Storage {
         console.log("LOCKED MESSAGE !",msg);
         logger.debug('[redis]: Message',msg);
         const key = await this.getFileTag();
-        if ( key === msg.file ) {
+        if ( key && this.nsKey(key) === msg.file ) {
             if ( msg.state == LockState.Locked ) {
                 await commands.executeCommand(LockCommands.updateLock,this.isMe(msg.tag) ? LockState.Owned : LockState.Locked,msg);
             } else {
@@ -115,10 +117,11 @@ export class Storage {
     }
 
     public get locks() : Thenable<LockMessage[]> {
-        return this.pub.keys("*")
+        return this.keys()
         .then((keys)=>{
+            console.log("Found locks",keys);
             return Promise.all(
-                keys.map(file => this.get(file).then((tag) => ({file,tag,state:this.isMe(tag!) ? LockState.Owned : LockState.Locked}) as LockMessage))            
+                keys.map(file => this.getVal(file).then((tag) => ({file,tag,state:this.isMe(tag!) ? LockState.Owned : LockState.Locked}) as LockMessage))            
             );
         });
     }
@@ -128,33 +131,45 @@ export class Storage {
         const wiped = data.filter(m => this.isMe(m.tag));
         wiped.forEach((m)=>{
             this.pub.del(m.file);
-            this.pub.publish("ch1",JSON.stringify({state:LockState.Unlocked,file:m.file,tag:m.tag}));
+            this.publish({state:LockState.Unlocked,file:m.file,tag:m.tag});
         });
-        logger.info(`Wiped ${wiped.length} locksa`);
+        logger.info(`Wiped ${wiped.length} locks`);
     }
 
     async ctxUnlock(msg:LockMessage) {
-        await this.del(msg.file);
-        this.pub.publish("ch1",JSON.stringify({state:LockState.Unlocked,file:msg.file,tag:msg.tag}));
+        await this.pub.del(msg.file);
+        this.publish({state:LockState.Unlocked,file:msg.file,tag:msg.tag});
     }
 
     async informLocksChanges() {
-        const data = await this.pub.keys("*")
+        const data = await this.keys()
         .then((keys)=>{
             return Promise.all(
-                keys.map(file => this.get(file).then((tag) => ({file,tag}) as LockMessage))
+                keys.map(file => this.getVal(file).then((tag) => ({file,tag}) as LockMessage))
             
             );
         });
         this._onDidLockChanged.fire(data);
+        this.setContext();
+    }
+
+    nsKey(key:string) {
+        const ns = vs.workspace.name;
+        return `${ns}:${key}`;
+    }
+
+    keys() {
+        const ns = vs.workspace.name;
+        return this.pub.keys(`${ns}:*`);
     }
 
     set(key:string,obj:Tag) {
-        logger.debug(`Locking file ${key}`);
-        return this.pub.set(key,JSON.stringify(obj));
+        const nskey = this.nsKey(key);
+        logger.debug(`Locking file ${nskey}`);
+        return this.pub.set(nskey,JSON.stringify(obj));
     }
 
-    get(key:string) {
+    getVal(key:string) {
         return this.pub.get(key)
         .then((res:string | null)=>{
             if ( res ) {
@@ -164,13 +179,24 @@ export class Storage {
         });
     }
 
+    get(key:string) {
+        return this.pub.get(this.nsKey(key))
+        .then((res:string | null)=>{
+            if ( res ) {
+                return JSON.parse(res) as Tag;
+            }
+            return null;
+        });
+    }
+
     del(key:string) {
-        logger.debug(`Release file ${key}`);
-        return this.pub.del(key);
+        const nskey = this.nsKey(key);
+        logger.debug(`Release file ${nskey}`);
+        return this.pub.del(nskey);
     }
 
     exists(key:string) {
-        return this.pub.exists(key);
+        return this.pub.exists(this.nsKey(key));
     }
 
     publish(obj:object) {
@@ -193,7 +219,7 @@ export class Storage {
         } else {
             this.del(key);
         }
-        this.publish({state,file:key,tag:this.tag});
+        this.publish({state,file:this.nsKey(key),tag:this.tag});
         this.setContext();
     }
 
@@ -223,21 +249,27 @@ export class Storage {
         if ( uri.scheme !== 'file' ) {
             return;
         }
+
+        // const ws = vs.workspace.getWorkspaceFolder(uri);
+        // const ns = ws?.name;
+
         const key = vs.workspace.asRelativePath(uri!,false);
+        console.log("GET FILE TAG",key);
         return key;
-        // this.getGIT(uri);
-        /*
+    }
+
+    async findGit(file:string) {
         const levelUp = async (dir:string) => {
             try {
                 const dotGit = path.join(dir,".git");
-                const dotGitStat = await new Promise<fs.Stats>((c, e) => fs.stat(dotGit, (err, stat) => err ? e(err) : c(stat)));
-                if ( dotGitStat.isDirectory() ) {
+                const found = existsSync(dotGit);
+                if ( found /* dotGitStat.isDirectory() */ ) {
                     const p = dir.split(path.sep);
                     p.pop();
                     return path.join(path.sep,...p);
                 }
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (e) { /* empty  }
+            } catch (e) { /* empty */ }
             const parts = dir.split(path.sep);            
             if ( parts.length > 1 ) {                
                 parts.pop();
@@ -246,17 +278,14 @@ export class Storage {
             }
             return null;
         };
-        */
-        /*
-        const p = path.parse(uri.fsPath);
+        
+        const p = path.parse(file);
         const found = await levelUp(p.dir);
         if ( found ) {
-            const key = uri.fsPath.substring(found.length);
-            const base = uri.fsPath.substring(0,found.length);
-            console.log("FILE TAG",{key,base});
-            return {key,base};
+            const key = file.substring(found.length);
+            console.log("FILE TAG",key);
+            return key;
         }
-        */
     }
 
     /*

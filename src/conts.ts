@@ -12,7 +12,8 @@ export enum LockCommands {
     unlock = `${name}.unlock`,
     wipeLocked = `${name}.wipeLocked`,
     ctxUnlock = `${name}.ctxUnlock`,
-    ctxOpen = `${name}.ctxOpen`
+    ctxOpen = `${name}.ctxOpen`,
+    lockFolder = `${name}.lockFolder`,
 }
 
 export enum LockState {

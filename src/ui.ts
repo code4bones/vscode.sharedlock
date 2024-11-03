@@ -85,6 +85,14 @@ export class Controller {
         this._storage.ctxUnlock(msg);
     }
 
+    async initialUpdate() {
+        const locks = await this.storage.locks;
+        if ( !locks.length ) {
+            return;
+        }
+        this._storage.setTabStatus();        
+    }
+
     public dispose() {
         this.statusBar.dispose();
     }

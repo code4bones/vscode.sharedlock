@@ -1,4 +1,4 @@
-import {ExtensionContext,window, LogOutputChannel} from "vscode"
+import {ExtensionContext,window, LogOutputChannel} from "vscode";
 
 let logger: LogOutputChannel;
 
