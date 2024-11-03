@@ -30,14 +30,9 @@ export function registerCommands(ctx:vscode.ExtensionContext)  {
     }
 
     function ctxOpen(msg:LockMessage) {
-      console.log("OPEN",msg);
-      /*
-      const rootPath = (vscode.workspace.workspaceFolders && (vscode.workspace.workspaceFolders.length > 0))
-      ? vscode.workspace.workspaceFolders[0].uri.fsPath : undefined;
-      */
       vscode.workspace.workspaceFolders?.forEach((ws)=>{
         const file = path.join(ws.uri.fsPath,msg.file);
-        console.log("SHECK",file);
+        console.log("Try open",file);
         if ( fs.existsSync(file) ) {
           vscode.window.showTextDocument(vscode.Uri.parse(file));
           return;

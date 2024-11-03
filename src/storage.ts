@@ -55,8 +55,7 @@ export class Storage {
             this.onChangeTabs(e);
         });
         */
-        vs.window.onDidChangeActiveTextEditor((e)=>{
-            console.log(">>>>> WOW",e?.document.fileName);
+        vs.window.onDidChangeActiveTextEditor((_e)=>{
             this.setTabStatus();
         });
     }
@@ -227,9 +226,9 @@ export class Storage {
         if ( uri.scheme !== 'file' ) {
             return;
         }
-        const ws = vs.workspace.getWorkspaceFolder(uri);
-        const wsPath = ws?.uri.fsPath;
-        
+        const key = vs.workspace.asRelativePath(uri!,false);
+        return key;
+        // this.getGIT(uri);
         /*
         const levelUp = async (dir:string) => {
             try {
@@ -251,8 +250,6 @@ export class Storage {
             return null;
         };
         */
-        const key = uri.fsPath.substring(wsPath!.length);
-        return key;
         /*
         const p = path.parse(uri.fsPath);
         const found = await levelUp(p.dir);
@@ -265,9 +262,23 @@ export class Storage {
         */
     }
 
-    async getGIT() {
+    async getGIT(file:vs.Uri) {
         const gitExtension = vs.extensions?.getExtension<GitExtension>('vscode.git')?.exports;
         const git = gitExtension?.getAPI(1);
+        const repo = git?.getRepository(file);
+        const {HEAD,workingTreeChanges,untrackedChanges,remotes} = repo!.state;
+        console.log("STATE",{
+            HEAD,
+            workingTreeChanges,
+            untrackedChanges,
+            remotes
+        });
+        repo?.getBranches({remote:true})
+        .then((list)=>{
+            console.log("Branches",list);
+        })
+        console.log("REPO",await repo?.status());
+        /*
         vs.workspace.workspaceFolders?.forEach((f)=>{
             console.log("WORKSPACES",f.name,f.uri);
             const repo = git?.getRepository(f.uri);
@@ -283,6 +294,7 @@ export class Storage {
                 console.log(`>>>>>>>>>>>>>>>>> ${f.uri}`,cfg);
             });
         });
+        */
     }
 
     public dispose() {

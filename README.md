@@ -1,2 +1,2 @@
 # vscode.sharedlock
-VSCode ext. for  locking files in team  development
+VSCode ext. for sharing file locks in workspace files via network

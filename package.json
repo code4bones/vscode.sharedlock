@@ -1,18 +1,34 @@
 {
 	"name": "sharedlock",
 	"displayName": "SharedLock",
-	"description": "Locks files via network",
+	"description": "Sharing file locks in workspace files via network",
 	"version": "0.0.1",
 	"publisher": "code4bones",
-	"repository": "https://github.com/Microsoft/vscode-extension-samples/helloworld-sample",
+	"icon": "resources/icons/logo.png",
+	"repository": { 
+		"type": "git",
+		"url": "https://github.com/code4bones/vscode.sharedlock.git"
+	},
+	"bugs":{
+		"url":"https://github.com/code4bones/vscode.sharedlock/issues",
+		"email": "p.olesov@code4bones.online"
+	},
 	"engines": {
 		"vscode": "^1.74.0"
 	},
 	"categories": [
-		"Other"
+		"Other",
+		"Programming Languages",
+		"SCM Providers"
+	],
+	"keywords": [
+		"Teams",
+		"Development",
+		"Parallel",
+		"Files",
+		"Locks"
 	],
 	"extensionDependencies": [
-		"vscode.git"
 	],
 	"activationEvents": [
 		"onStartupFinished"
