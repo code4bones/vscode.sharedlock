@@ -2,7 +2,7 @@
 	"name": "sharedlock",
 	"displayName": "SharedLock",
 	"description": "Sharing file locks in workspace files via network",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"publisher": "code4bones",
 	"icon": "resources/icons/logo.png",
 	"repository": {
@@ -140,7 +140,7 @@
 						"title": "Host",
 						"type": "string",
 						"default": "127.0.0.1",
-						"order": 1,						
+						"order": 1,
 						"markdownDescription": "Redis server name or local instance"
 					},
 					"redisPort": {
