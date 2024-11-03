@@ -2,8 +2,6 @@
 
 #### Used to acquire ownership of file(s) inside common to all team members project 
 
-[![Logo](./resources/icons/logo.png)](https://marketplace.visualstudio.com/items?itemName=code4bones.sharedlock)
-
 ## Installation
 
     Install from vscode marketplace [SharedLock](https://marketplace.visualstudio.com/items?itemName=code4bones.sharedlock).

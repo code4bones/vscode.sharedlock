@@ -2,7 +2,7 @@
 	"name": "sharedlock",
 	"displayName": "SharedLock",
 	"description": "Sharing file locks in workspace files via network",
-	"version": "0.2.8",
+	"version": "0.2.9",
 	"publisher": "code4bones",
 	"icon": "resources/icons/logo.png",
 	"repository": {
@@ -175,7 +175,7 @@
 		"prebuild":"rimraf -rf ./dist",
 		"package": "vsce package",
 		"prepackage": "npm run build",
-		"publish": "vsce publish --pre-release",
+		"publish": "vsce publish",
 		"prepublish": "npm run compile"
 	},
 	"devDependencies": {
