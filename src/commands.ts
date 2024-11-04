@@ -5,7 +5,7 @@ import { LockMessage } from "./types";
 import * as path from "path";
 import * as fs from "fs";
 import {glob} from "glob";
-import * as mm from "micromatch";
+import mm from "micromatch";
 
 export function registerCommands(ctx:vscode.ExtensionContext)  {
     const ctrl = new Controller(ctx);
@@ -49,7 +49,6 @@ export function registerCommands(ctx:vscode.ExtensionContext)  {
 
     function ctxLockFolder (startDir:vscode.Uri) {
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const getFiles = (ignore:string[]) => {
         return glob(path.join(startDir.path,'**/*'),{ignore,dot:true})
         .then((files)=>{
