@@ -42,6 +42,13 @@ export class StatusBar {
         } 
         this.item.show();
     }
+    enable(en:boolean) {
+        if (en) {
+            this.item.show();
+        } else {
+            this.item.hide();
+        }
+    }
 }
 
 export class Controller {
@@ -54,6 +61,9 @@ export class Controller {
         this.statusBar = new StatusBar(ctx);
         this.statusBar.update(C.LockState.Unlocked);
         ctx.subscriptions.push(this.statusBar,this.storage);
+        this._storage.onDidEnabledChanged((enable)=>{
+            this.statusBar.enable(enable);
+        });
     }
 
     get storage () {
@@ -96,5 +106,6 @@ export class Controller {
     public dispose() {
         this.statusBar.dispose();
     }
+
 
 }

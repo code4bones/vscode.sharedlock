@@ -7,16 +7,26 @@ import { LockCommands, LockState, channelID } from "./conts";
 import { Tag,LockMessage } from "./types";
 import { logger } from "./logger";
 import { existsSync } from "fs";
+import { getPathNS } from "./utils";
 
 export class Storage {
     private sub:Redis;
     private pub:Redis;
     private tag:Tag;
+    private _ns?:string;
+    private ctx:vs.ExtensionContext;
+    private folders:string[];
+    private _enabled:boolean;
 
     _onDidLockChanged:vs.EventEmitter<LockMessage[]>;
+    _onDidEnabledChanged:vs.EventEmitter<boolean>;
 
     get onDidLockChanged() {
         return this._onDidLockChanged.event;
+    }
+
+    get onDidEnabledChanged() {
+        return this._onDidEnabledChanged.event;
     }
 
     getTag() {
@@ -28,7 +38,14 @@ export class Storage {
     }
 
     constructor(_ctx:vs.ExtensionContext) {        
-        
+        this.ctx = _ctx;
+
+        this._onDidLockChanged = new vs.EventEmitter<LockMessage[]>();
+        this._onDidEnabledChanged = new vs.EventEmitter<boolean>();
+
+        this._enabled = false;
+        this.enabled = true;
+        this.folders = JSON.parse(this.ctx.globalState.get("roots")!);         
         const host = vs.workspace.getConfiguration().get("redisHost") as string;
         const port = parseInt(vs.workspace.getConfiguration().get("redisPort")!);
         const db   = parseInt(vs.workspace.getConfiguration().get("redisDB")!);
@@ -39,9 +56,9 @@ export class Storage {
             connectionName:"SHLCK",
         };
 
-        console.log("Config",connectOpts);
+        console.log("Config",connectOpts,this.folders);
 
-        this._onDidLockChanged = new vs.EventEmitter<LockMessage[]>();
+
         this.tag = this.getTag();
         this.sub = new Redis(connectOpts);
         this.pub = new Redis(connectOpts);
@@ -64,15 +81,36 @@ export class Storage {
         this.sub.on("error",(e)=>{
             logger.error(`[redis]: ${e.name}:${e.message}`);
         });
-        vs.window.onDidChangeActiveTextEditor((_e)=>{
+        vs.window.onDidChangeActiveTextEditor((e)=>{
+            if ( !e?.document ) {
+                return;
+            }
+            const ns = this.ns;           
+            if ( this._ns !== ns ) {
+                this._ns = ns;
+                this.informLocksChanges();
+            }
             this.setTabStatus();
         });
+    }
+
+    set enabled(hasGit:boolean) {
+        if ( this._enabled !== hasGit ) { 
+            this._enabled = hasGit;
+            vs.commands.executeCommand('setContext','sharedlock.hasGit',hasGit);
+            this._onDidEnabledChanged.fire(hasGit);
+        }
+    }
+
+    get enabled() {
+        return this._enabled;
     }
 
     async setContext(file?:string) {
         const key = file || (await this.getFileTag());
         if ( key ) {
             const check = await this.get(key);
+            console.log(`Check ${key}`,check);
             const locked = check;
             const isOwner = locked && this.isMe(check);
             vs.commands.executeCommand('setContext','sharedlock.state',locked ? 'locked':'unlocked');
@@ -119,7 +157,6 @@ export class Storage {
     public get locks() : Thenable<LockMessage[]> {
         return this.keys()
         .then((keys)=>{
-            console.log("Found locks",keys);
             return Promise.all(
                 keys.map(file => this.getVal(file).then((tag) => ({file,tag,state:this.isMe(tag!) ? LockState.Owned : LockState.Locked}) as LockMessage))            
             );
@@ -150,26 +187,26 @@ export class Storage {
             );
         });
         this._onDidLockChanged.fire(data);
-        this.setContext();
-    }
-
-    nsKey(key:string) {
-        const ns = vs.workspace.name;
-        return `${ns}:${key}`;
+        // this.setContext();
     }
 
     keys() {
-        const ns = vs.workspace.name;
-        return this.pub.keys(`${ns}:*`);
+        return this.pub.keys(`${this.ns}:*`);
     }
 
     set(key:string,obj:Tag) {
+        if ( !this.enabled ) {
+            return;
+        }
         const nskey = this.nsKey(key);
         logger.debug(`Locking file ${nskey}`);
         return this.pub.set(nskey,JSON.stringify(obj));
     }
 
     getVal(key:string) {
+        if (!this.enabled ) {
+            return Promise.resolve(null);
+        }
         return this.pub.get(key)
         .then((res:string | null)=>{
             if ( res ) {
@@ -180,6 +217,9 @@ export class Storage {
     }
 
     get(key:string) {
+        //if (!this.enabled ) {
+        //    return;
+        //}
         return this.pub.get(this.nsKey(key))
         .then((res:string | null)=>{
             if ( res ) {
@@ -190,12 +230,18 @@ export class Storage {
     }
 
     del(key:string) {
+        if (!this.enabled ) {
+            return;
+        }
         const nskey = this.nsKey(key);
         logger.debug(`Release file ${nskey}`);
         return this.pub.del(nskey);
     }
 
     exists(key:string) {
+        if (!this.enabled ) {
+            return;
+        }
         return this.pub.exists(this.nsKey(key));
     }
 
@@ -223,6 +269,38 @@ export class Storage {
         this.setContext();
     }
 
+    async lockGroup(files:string[]) {
+        if ( !files?.length ) {
+            vs.window.showInformationMessage(`Nothing to lock...`);
+            return;
+        }
+        const [oneFile] = files;
+        const ns = getPathNS(oneFile,this.folders);
+        const pendings = files.map((file)=>{
+            const uri = vs.Uri.parse(file);
+            const root = this.getRoot(uri);
+            if ( root ) {
+                const key = uri!.path.substring(root!.length);
+                const tkey = `${ns}:${key}`;
+                this.pub.exists(tkey)
+                .then((ignore)=>{
+                    if ( !ignore ) {
+                        logger.info(`[${ns}] Locked [${key}]`);
+                        console.log(`KEYED ${tkey}`);
+                        return this.pub.set(tkey,JSON.stringify(this.tag));
+                    } else {
+                        logger.warn(`[${ns}] Skipped: ${key}`);
+                        console.log("**** SKIPPED",tkey);
+                    }
+                });
+            } 
+        });
+        Promise.all(pendings)
+        .then(async ()=>{
+            await this.informLocksChanges();
+            vs.window.showInformationMessage(`${files.length} file(s) are owned`);
+        });
+    }
 
     async toggleLock() {
         const key = await this.getFileTag();
@@ -241,35 +319,56 @@ export class Storage {
         }
     }
 
+
+    nsKey(key:string) {
+        if ( !vs.window.activeTextEditor ) {
+            const ns = vs.workspace.name;
+            return `${ns}:${key}`;
+        }
+        const ns = this.ns;
+        return `${ns}:${key}`;
+    }
+
     async getFileTag() {
         if ( !vs.window.activeTextEditor ) {
+            this.enabled = false;
             return;
         }
         const {uri} = vs.window.activeTextEditor.document;
         if ( uri.scheme !== 'file' ) {
+            this.enabled = false;
             return;
         }
-
-        // const ws = vs.workspace.getWorkspaceFolder(uri);
-        // const ns = ws?.name;
-
-        const key = vs.workspace.asRelativePath(uri!,false);
-        console.log("GET FILE TAG",key);
+        const root = this.getRoot(uri!);
+        if ( !root ) {
+            this.enabled = false;
+            return;
+        } 
+        const key = uri!.path.substring(root!.length);
+        // console.log("F>",uri.path);
+        // console.log("R>",root);
+        // console.log("K>",key);
         return key;
     }
 
-    async findGit(file:string) {
-        const levelUp = async (dir:string) => {
-            try {
+    getRoot(file?:vs.Uri) {
+        const levelUp = (dir:string) => {
+            if ( dir === "/" ) {
+                return null;
+            }
+            const defIdx = this.folders.indexOf(dir);
+
+            if ( defIdx === -1 ) {
                 const dotGit = path.join(dir,".git");
                 const found = existsSync(dotGit);
-                if ( found /* dotGitStat.isDirectory() */ ) {
-                    const p = dir.split(path.sep);
-                    p.pop();
-                    return path.join(path.sep,...p);
+                if ( found ) {
+                    // const p = dir.split(path.sep);
+                    return dir;
                 }
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (e) { /* empty */ }
+            } else {
+                // const p = dir.split(path.sep);
+                return dir;
+            }
             const parts = dir.split(path.sep);            
             if ( parts.length > 1 ) {                
                 parts.pop();
@@ -279,12 +378,30 @@ export class Storage {
             return null;
         };
         
-        const p = path.parse(file);
-        const found = await levelUp(p.dir);
+        if ( !file && !vs.window.activeTextEditor ) {
+            this.enabled = false;
+            return null;
+        }
+        const fsPath = file?.path || vs.window.activeTextEditor?.document?.uri?.path;
+        const prs = path.parse(fsPath!);
+        const found = levelUp(prs.dir);
+        return found;
+    }
+
+    get ns() {
+
+        if ( !vs.window.activeTextEditor ) {
+            this.enabled = false;
+            return '';
+        }
+        const {uri} = vs.window.activeTextEditor.document;
+        const found = getPathNS(uri.path,this.folders);
         if ( found ) {
-            const key = file.substring(found.length);
-            console.log("FILE TAG",key);
-            return key;
+            this.enabled = true;
+            return found;
+        } else {
+            logger.warn(`No Repository found for: ${uri.path}`);
+            this.enabled = false;
         }
     }
 

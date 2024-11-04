@@ -17,6 +17,14 @@ Install from vscode marketplace [SharedLock](https://marketplace.visualstudio.co
 ![Demo](./resources/images/demo.gif)
 
 
+## Screens 
+
+![Release](./resources/images/sharedlock_exp.gif)
+
+![Release](./resources/images/release.gif)
+
+![Release](./resources/images/folderlock.gif)
+
 ## How it works
 
     For preventing merge confilicts while editing same file, developer can lock the file, so other team members
