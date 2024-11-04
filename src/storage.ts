@@ -44,7 +44,6 @@ export class Storage {
         this._onDidEnabledChanged = new vs.EventEmitter<boolean>();
 
         this._enabled = false;
-        this.enabled = true;
         this.folders = JSON.parse(this.ctx.globalState.get("roots")!);         
         const host = vs.workspace.getConfiguration().get("redisHost") as string;
         const port = parseInt(vs.workspace.getConfiguration().get("redisPort")!);
@@ -58,20 +57,23 @@ export class Storage {
 
         console.log("Config",connectOpts,this.folders);
 
-
         this.tag = this.getTag();
         this.sub = new Redis(connectOpts);
         this.pub = new Redis(connectOpts);
         this.sub.on("connect",()=>{
-            console.log("*** CONNECTED ****");
-            logger.info(`[redis]: Connection made to ${host}:${port} with auth ${username}/${password}`);
+            let txt = `[redis]: Connection made to ${host}:${port} with auth ${username}/${password}`;
+            console.log(txt);
+            logger.info(txt);
             this.sub.subscribe(channelID,(err,count) => {
                 if ( err ){
-                    logger.error(`[redis] Failed to subscribe to channed ${channelID}`,err.message);
-                    console.error("Cannot subscribe !",err);
+                    txt = `[redis] Failed to subscribe to channed ${channelID}: ${err.message}`;
+                    logger.error(txt);
+                    console.error(txt,err);
                 } else { 
-                    logger.info(`[redis] Message bus started on ${channelID}`);
-                    console.log("Subscribed",count);
+                    txt = `[redis] Message bus started on ${channelID} ( count ${count})`;
+                    logger.info(txt);
+                    console.log(txt);
+                    this.startup();
                 }
             });
             this.sub.on("message",(channel,msg)=>{
@@ -80,7 +82,12 @@ export class Storage {
         });
         this.sub.on("error",(e)=>{
             logger.error(`[redis]: ${e.name}:${e.message}`);
+            this.enabled = false;
         });
+    }
+
+    startup() {
+        this.enabled = true;
         vs.window.onDidChangeActiveTextEditor((e)=>{
             if ( !e?.document ) {
                 return;
@@ -106,11 +113,10 @@ export class Storage {
         return this._enabled;
     }
 
-    async setContext(file?:string) {
+    async setContext(file?:string,aCheck?:Tag | null) {
         const key = file || (await this.getFileTag());
         if ( key ) {
-            const check = await this.get(key);
-            console.log(`Check ${key}`,check);
+            const check = aCheck || (await this.get(key));
             const locked = check;
             const isOwner = locked && this.isMe(check);
             vs.commands.executeCommand('setContext','sharedlock.state',locked ? 'locked':'unlocked');
@@ -137,7 +143,7 @@ export class Storage {
             commands.executeCommand('workbench.action.files.setActiveEditorWriteableInSession');
             commands.executeCommand(LockCommands.updateLock,LockState.Unlocked);
         }
-        this.setContext(key);
+        this.setContext(key,check);
     }
 
     async onMessage(msg:LockMessage) {
