@@ -27,10 +27,10 @@ Install from vscode marketplace [SharedLock](https://marketplace.visualstudio.co
 
 ## How it works
 
-    For preventing merge confilicts while editing same file, developer can lock the file, so other team members
-    cannot edit it, until first developer releases the file
+For preventing merge confilicts while editing same file, developer can lock the file, so other team members
+cannot edit it, until first developer releases the file
 
-    This works inside identical project source tree ( i.e. cloned repo of same project, but doen't care abount branch),
-    Locks works on [Workspace]/**/* files.
+This works inside identical project source tree ( i.e. cloned repo of same project, but doen't care abount branch),
+Locks works on [Workspace]/**/* files.
 
 
