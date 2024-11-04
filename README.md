@@ -19,11 +19,11 @@ Install from vscode marketplace [SharedLock](https://marketplace.visualstudio.co
 
 ## Screens 
 
-![Release](./resources/images/sharedlock_exp.gif)
+![Release](./resources/images/sharedlock_exp.png)
 
-![Release](./resources/images/release.gif)
+![Release](./resources/images/release.png)
 
-![Release](./resources/images/folderlock.gif)
+![Release](./resources/images/folderlock.png)
 
 ## How it works
 
