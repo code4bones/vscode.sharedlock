@@ -6,6 +6,7 @@ import * as path from "path";
 import * as fs from "fs";
 import {glob} from "glob";
 import mm from "micromatch";
+import { logger } from "./logger";
 
 export function registerCommands(ctx:vscode.ExtensionContext)  {
     const ctrl = new Controller(ctx);
@@ -33,15 +34,19 @@ export function registerCommands(ctx:vscode.ExtensionContext)  {
 
     function ctxOpen(msg:LockMessage) {
       vscode.workspace.workspaceFolders?.forEach((ws)=>{
-        const [ns,fileName] = msg.file.split(":");
-        const mask = path.join(ws.uri.path,'**',ns,"**",fileName); 
+        const [,fileName] = msg.file.split(":");
+        // const mask = path.join(ws.uri.path,'**',ns,"**",fileName); 
+        const mask = path.join(ws.uri.path,"**",fileName); 
         glob(mask)
         .then((files)=>{
+          console.log("FILES",files);
           if ( files?.length ) {
             const [file] = files;
             vscode.window.showTextDocument(vscode.Uri.parse(file));
           } else {
-            vscode.window.showErrorMessage(`Cannot open document,using ${mask}`);
+            const err = `Cannot file any files by ${mask}`;
+            logger.error(err);
+            vscode.window.showErrorMessage(err);
           }
         });
       });

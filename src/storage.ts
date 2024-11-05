@@ -61,7 +61,7 @@ export class Storage {
         this.sub = new Redis(connectOpts);
         this.pub = new Redis(connectOpts);
         this.sub.on("connect",()=>{
-            let txt = `[redis]: Connection made to ${host}:${port} with auth ${username}/${password}`;
+            let txt = `[redis]: Connection made to ${host}:${port}/${db} with auth ${username || '-'}/${password ||'-'}`;
             console.log(txt);
             logger.info(txt);
             this.sub.subscribe(channelID,(err,count) => {
@@ -448,7 +448,7 @@ export class Storage {
     */
 
     public dispose() {
-        console.log("Killing connection");
+        console.log("Extension stopped.");
         this.pub.disconnect(false);
         this.sub.disconnect(false);
     }
