@@ -110,8 +110,10 @@ export class Storage {
     set enabled(hasGit:boolean) {
         if ( this._enabled !== hasGit ) { 
             this._enabled = hasGit;
-            vs.commands.executeCommand('setContext','sharedlock.hasGit',hasGit);
-            this._onDidEnabledChanged.fire(hasGit);
+            vs.commands.executeCommand('setContext','sharedlock.hasGit',hasGit)
+            .then(()=>{
+                this._onDidEnabledChanged.fire(hasGit);
+            });
         }
     }
 
@@ -125,8 +127,9 @@ export class Storage {
             const check = aCheck || (await this.get(key));
             const locked = check;
             const isOwner = locked && this.isMe(check);
-            vs.commands.executeCommand('setContext','sharedlock.state',locked ? 'locked':'unlocked');
-            vs.commands.executeCommand('setContext','sharedlock.isOwner',isOwner);
+            await Promise.all([
+                vs.commands.executeCommand('setContext','sharedlock.state',locked ? 'locked':'unlocked'),
+                vs.commands.executeCommand('setContext','sharedlock.isOwner',isOwner)]);
             console.log(`Set context: ${key}`,locked);
         }
     }
@@ -139,17 +142,19 @@ export class Storage {
         const check = await this.get(key);
         if ( check ) {
             if ( this.isMe(check) ) {
-                commands.executeCommand(LockCommands.updateLock,LockState.Owned,{tag:check});
-                commands.executeCommand('workbench.action.files.setActiveEditorWriteableInSession');
+                await Promise.all([
+                    commands.executeCommand(LockCommands.updateLock,LockState.Owned,{tag:check}),
+                    commands.executeCommand('workbench.action.files.setActiveEditorWriteableInSession')]);
             } else {
-                commands.executeCommand(LockCommands.updateLock,LockState.Locked,{tag:check});
-                commands.executeCommand('workbench.action.files.setActiveEditorReadonlyInSession');
+                await Promise.all([
+                    commands.executeCommand(LockCommands.updateLock,LockState.Locked,{tag:check}),
+                    commands.executeCommand('workbench.action.files.setActiveEditorReadonlyInSession')]);
             }
         } else {
-            commands.executeCommand('workbench.action.files.setActiveEditorWriteableInSession');
-            commands.executeCommand(LockCommands.updateLock,LockState.Unlocked);
+            await Promise.all([commands.executeCommand('workbench.action.files.setActiveEditorWriteableInSession'),
+                               commands.executeCommand(LockCommands.updateLock,LockState.Unlocked)]);
         }
-        this.setContext(key,check);
+        await this.setContext(key,check);
     }
 
     async onUIMessage(msg:UIMessage) {
@@ -158,10 +163,10 @@ export class Storage {
         switch ( msg.type ) {
             case UIMessageType.lockRequest:
                 vs.window.showWarningMessage(`👤 ${msg.from.username} • ${msg.message}`,{},...["Unlock!"])
-                .then((res)=>{
+                .then(async (res)=>{
                     console.log(res);
                     if ( res ) {
-                        this.setFileLockState(LockState.Unlocked,(msg as UILockRequestMessage).payload.file);
+                        await this.setFileLockState(LockState.Unlocked,(msg as UILockRequestMessage).payload.file);
                     }
                     this.uiPub(msg.from,{
                         type:UIMessageType.lockReply,
@@ -177,7 +182,7 @@ export class Storage {
             case UIMessageType.lockReply:
                 if ( (msg as UILockReplyMessage).payload.granted ) {
                     vs.window.showWarningMessage(`${msg.message} 👤 ${msg.from.username}`);
-                    this.setFileLockState(LockState.Locked,(msg as UILockReplyMessage).payload.file);
+                    await this.setFileLockState(LockState.Locked,(msg as UILockReplyMessage).payload.file);
                 } else {
                     vs.window.showErrorMessage(`${msg.message} 👤 ${msg.from.username}`);
                 }
@@ -212,8 +217,10 @@ export class Storage {
         const data = await this.locks;
         const wiped = data.filter(m => this.isMe(m.tag));
         wiped.forEach((m)=>{
-            this.pub.del(m.file);
-            this.publish({state:LockState.Unlocked,file:m.file,tag:m.tag});
+            this.pub.del(m.file)
+            .then(()=>{
+                this.publish({state:LockState.Unlocked,file:m.file,tag:m.tag});
+            });
         });
         logger.info(`Wiped ${wiped.length} locks`);
     }
@@ -289,7 +296,7 @@ export class Storage {
 
     publish(obj:object) {
         logger.debug(`[redis]: Publish`,obj);
-        this.pub.publish(channelID,JSON.stringify(obj));
+        return this.pub.publish(channelID,JSON.stringify(obj));
     }
 
     isMe(tag:Tag) {
@@ -303,12 +310,12 @@ export class Storage {
             return;
         }
         if ( state == LockState.Locked ) {
-            this.set(key,this.tag);
+            await this.set(key,this.tag);
         } else {
-            this.del(key);
+            await this.del(key);
         }
-        this.publish({state,file:this.nsKey(key),tag:this.tag});
-        this.setContext();
+        await this.publish({state,file:this.nsKey(key),tag:this.tag});
+        await this.setContext();
     }
 
     async lockGroup(files:string[]) {
@@ -324,12 +331,12 @@ export class Storage {
             if ( root ) {
                 const key = uri!.path.substring(root!.length);
                 const tkey = `${ns}:${key}`;
-                this.pub.exists(tkey)
+                return this.pub.exists(tkey)
                 .then((ignore)=>{
                     if ( !ignore ) {
                         logger.info(`[${ns}] Locked [${key}]`);
                         console.log(`KEYED ${tkey}`);
-                        return this.pub.set(tkey,JSON.stringify(this.tag));
+                        return this.setFileLockState(LockState.Locked,key);
                     } else {
                         logger.warn(`[${ns}] Skipped: ${key}`);
                         console.log("**** SKIPPED",tkey);
@@ -337,9 +344,9 @@ export class Storage {
                 });
             } 
         });
-        Promise.all(pendings)
+        await Promise.all(pendings)
         .then(async ()=>{
-            await this.informLocksChanges();
+            // await this.informLocksChanges();
             vs.window.showInformationMessage(`${files.length} file(s) are owned`);
         });
     }
@@ -351,10 +358,10 @@ export class Storage {
         }
         const check = await this.get(key);
         if (!check) {
-            this.setFileLockState(LockState.Locked);
+           await  this.setFileLockState(LockState.Locked);
         } else {
             if ( this.isMe(check)) {
-                this.setFileLockState(LockState.Unlocked);
+                await this.setFileLockState(LockState.Unlocked);
             } else {
                 const opts : vs.MessageOptions = {
                     modal:false,
@@ -362,7 +369,7 @@ export class Storage {
                 vs.window.showInformationMessage(`File is locked by [${check.username}]`,opts,...['Request ownership ?'])
                 .then((item)=>{
                     if ( item ) {
-                        this.uiPub(this.tag,{
+                       this.uiPub(check,{
                             type:UIMessageType.lockRequest,
                             from:this.tag,
                             message:`Unlock request for ${key} ?`,
@@ -377,7 +384,7 @@ export class Storage {
     }
 
     uiPub(tag:Tag,msg:UIMessage) {
-        this.pub.publish(`${channelUI}.${tag.username}`,JSON.stringify(msg));
+        return this.pub.publish(`${channelUI}.${tag.username}`,JSON.stringify(msg));
     }
 
     nsKey(key:string) {
