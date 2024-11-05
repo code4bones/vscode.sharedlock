@@ -4,6 +4,7 @@ const statusBarID = `${name}.statusBar`;
 const statusBarAction = `${name}.indicatorAction`;
 const locksViewID = `${name}.locksView`;
 const channelID = `${name}.bus`;
+const channelUI = `${name}.ui`;
 
 export enum LockCommands {
     updateLock = `${name}.updateLock`,
@@ -27,5 +28,6 @@ export {
     statusBarID,
     statusBarAction,
     locksViewID,
-    channelID
+    channelID,
+    channelUI
 };

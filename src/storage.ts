@@ -3,8 +3,8 @@ import { commands } from "vscode";
 import * as vs from "vscode";
 import * as os from  'os';
 import * as path from 'path';
-import { LockCommands, LockState, channelID } from "./conts";
-import { Tag,LockMessage } from "./types";
+import { LockCommands, LockState, channelID, channelUI } from "./conts";
+import { Tag,LockMessage, UIMessage, UIMessageType, UILockRequestMessage, UILockReplyMessage } from "./types";
 import { logger } from "./logger";
 import { existsSync } from "fs";
 import { getPathNS } from "./utils";
@@ -17,6 +17,7 @@ export class Storage {
     private ctx:vs.ExtensionContext;
     private folders:string[];
     private _enabled:boolean;
+    private userChannel:string;
 
     _onDidLockChanged:vs.EventEmitter<LockMessage[]>;
     _onDidEnabledChanged:vs.EventEmitter<boolean>;
@@ -58,26 +59,31 @@ export class Storage {
         console.log("Config",connectOpts,this.folders);
 
         this.tag = this.getTag();
+        this.userChannel = `${channelUI}.${this.tag.username}`;
         this.sub = new Redis(connectOpts);
         this.pub = new Redis(connectOpts);
         this.sub.on("connect",()=>{
             let txt = `[redis]: Connection made to ${host}:${port}/${db} with auth ${username || '-'}/${password ||'-'}`;
             console.log(txt);
             logger.info(txt);
-            this.sub.subscribe(channelID,(err,count) => {
+            this.sub.subscribe(channelID,this.userChannel,(err,count) => {
                 if ( err ){
-                    txt = `[redis] Failed to subscribe to channed ${channelID}: ${err.message}`;
+                    txt = `[redis] Failed to subscribe to channels ${channelID}: ${err.message}`;
                     logger.error(txt);
                     console.error(txt,err);
                 } else { 
-                    txt = `[redis] Message bus started on ${channelID} ( count ${count})`;
+                    txt = `[redis] Message bus started on ${channelID}/${this,this.userChannel} ( count ${count})`;
                     logger.info(txt);
                     console.log(txt);
                     this.startup();
                 }
             });
             this.sub.on("message",(channel,msg)=>{
-                this.onMessage(JSON.parse(msg));
+                if ( channel === channelID ) {
+                    this.onMessage(JSON.parse(msg));
+                } else {
+                    this.onUIMessage(JSON.parse(msg));
+                }
             });            
         });
         this.sub.on("error",(e)=>{
@@ -144,6 +150,39 @@ export class Storage {
             commands.executeCommand(LockCommands.updateLock,LockState.Unlocked);
         }
         this.setContext(key,check);
+    }
+
+    async onUIMessage(msg:UIMessage) {
+        logger.info(`UI Message from ${msg.from.username}: ${msg.message}`);
+        console.log("UI",msg);
+        switch ( msg.type ) {
+            case UIMessageType.lockRequest:
+                vs.window.showWarningMessage(`👤 ${msg.from.username} • ${msg.message}`,{},...["Unlock!"])
+                .then((res)=>{
+                    console.log(res);
+                    if ( res ) {
+                        this.setFileLockState(LockState.Unlocked,(msg as UILockRequestMessage).payload.file);
+                    }
+                    this.uiPub(msg.from,{
+                        type:UIMessageType.lockReply,
+                        message:res ? "Accepted"  : "Rejected...",
+                        from:this.tag,
+                        payload:{
+                            file:(msg as UILockRequestMessage).payload.file,
+                            granted:Boolean(res)
+                        }
+                    });
+                });
+                break;
+            case UIMessageType.lockReply:
+                if ( (msg as UILockReplyMessage).payload.granted ) {
+                    vs.window.showWarningMessage(`${msg.message} 👤 ${msg.from.username}`);
+                    this.setFileLockState(LockState.Locked,(msg as UILockReplyMessage).payload.file);
+                } else {
+                    vs.window.showErrorMessage(`${msg.message} 👤 ${msg.from.username}`);
+                }
+                break;
+        }
     }
 
     async onMessage(msg:LockMessage) {
@@ -223,9 +262,6 @@ export class Storage {
     }
 
     get(key:string) {
-        //if (!this.enabled ) {
-        //    return;
-        //}
         return this.pub.get(this.nsKey(key))
         .then((res:string | null)=>{
             if ( res ) {
@@ -260,8 +296,8 @@ export class Storage {
         return this.tag.host === tag.host && this.tag.username === tag.username;
     }
 
-    async setFileLockState(state:LockState) {
-        const key = await this.getFileTag();
+    async setFileLockState(state:LockState,aKey?:string | undefined) {
+        const key = aKey || (await this.getFileTag());
         console.log("Lock state for",key,state);
         if ( !key ) {
             return;
@@ -320,11 +356,29 @@ export class Storage {
             if ( this.isMe(check)) {
                 this.setFileLockState(LockState.Unlocked);
             } else {
-                vs.window.showInformationMessage(`File is locked by ${check.username}`);                
+                const opts : vs.MessageOptions = {
+                    modal:false,
+                };
+                vs.window.showInformationMessage(`File is locked by [${check.username}]`,opts,...['Request ownership ?'])
+                .then((item)=>{
+                    if ( item ) {
+                        this.uiPub(this.tag,{
+                            type:UIMessageType.lockRequest,
+                            from:this.tag,
+                            message:`Unlock request for ${key} ?`,
+                            payload:{                                
+                                file:key,
+                            }
+                        });
+                    }
+                });              
             }
         }
     }
 
+    uiPub(tag:Tag,msg:UIMessage) {
+        this.pub.publish(`${channelUI}.${tag.username}`,JSON.stringify(msg));
+    }
 
     nsKey(key:string) {
         if ( !vs.window.activeTextEditor ) {

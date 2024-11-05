@@ -17,6 +17,8 @@ Install from vscode marketplace [SharedLock](https://marketplace.visualstudio.co
 ![Demo](./resources/images/demo.gif)
 
 
+![UnlockRequest](./resources/images/unlockreq.gif)
+
 ## Screens 
 
 ![Release](./resources/images/sharedlock_exp.png)
