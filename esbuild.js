@@ -1,54 +1,91 @@
-const esbuild = require('esbuild');
+const { build } = require("esbuild");
+const { copy } = require("esbuild-plugin-copy");
+//@ts-check
+/** @typedef {import('esbuild').BuildOptions} BuildOptions **/
 
-const production = process.argv.includes('--production');
-const watch = process.argv.includes('--watch');
-
-async function main() {
-  const ctx = await esbuild.context({
-    entryPoints: ['src/extension.ts'],
-    bundle: true,
-    format: 'cjs',
-    minify: production,
-    sourcemap: !production,
-    sourcesContent: false,
-    platform: 'node',
-    outfile: 'dist/extension.js',
-    external: ['vscode'],
-    logLevel: 'silent',
-    plugins: [
-      /* add to the end of plugins array */
-      esbuildProblemMatcherPlugin
-    ]
-  });
-  if (watch) {
-    await ctx.watch();
-  } else {
-    await ctx.rebuild();
-    await ctx.dispose();
-  }
-}
-
-/**
- * @type {import('esbuild').Plugin}
- */
-const esbuildProblemMatcherPlugin = {
-  name: 'esbuild-problem-matcher',
-
-  setup(build) {
-    build.onStart(() => {
-      console.log('[watch] build started');
-    });
-    build.onEnd(result => {
-      result.errors.forEach(({ text, location }) => {
-        console.error(`✘ [ERROR] ${text}`);
-        console.error(`    ${location.file}:${location.line}:${location.column}:`);
-      });
-      console.log('[watch] build finished');
-    });
-  }
+/** @type BuildOptions */
+const baseConfig = {
+  bundle: true,
+  minify: process.env.NODE_ENV === "production",
+  sourcemap: process.env.NODE_ENV !== "production",
 };
 
-main().catch(e => {
-  console.error(e);
-  process.exit(1);
-});
+// Config for extension source code (to be run in a Node-based context)
+/** @type BuildOptions */
+const extensionConfig = {
+  ...baseConfig,
+  platform: "node",
+  mainFields: ["module", "main"],
+  format: "cjs",
+  entryPoints: ["./src/extension.ts"],
+  outfile: "./out/extension.js",
+  external: ["vscode"],
+};
+
+// Config for webview source code (to be run in a web-based context)
+/** @type BuildOptions */
+const webviewConfig = {
+  ...baseConfig,
+  target: "es2020",
+  format: "esm",
+  entryPoints: ["./src/webview/main.ts"],
+  outfile: "./out/webview.js",
+  plugins: [
+    // Copy webview css files to `out` directory unaltered
+    copy({
+      resolveFrom: "cwd",
+      assets: {
+        from: ["./src/webview/*.css"],
+        to: ["./out"],
+      },
+    }),
+  ],  
+};
+
+// This watch config adheres to the conventions of the esbuild-problem-matchers
+// extension (https://github.com/connor4312/esbuild-problem-matchers#esbuild-via-js)
+/** @type BuildOptions */
+const watchConfig = {
+  watch: {
+    onRebuild(error, result) {
+      console.log("[watch] build started");
+      if (error) {
+        error.errors.forEach((error) =>
+          console.error(
+            `> ${error.location.file}:${error.location.line}:${error.location.column}: error: ${error.text}`
+          )
+        );
+      } else {
+        console.log("[watch] build finished");
+      }
+    },
+  },
+};
+
+// Build script
+(async () => {
+  const args = process.argv.slice(2);
+  try {
+    if (args.includes("--gatch")) {
+      // Build and watch extension and webview code
+      console.log("[watch] build started");
+      await build({
+        ...extensionConfig,
+        ...watchConfig,
+      });
+      await build({
+        ...webviewConfig,
+        ...watchConfig,
+      });
+      console.log("[watch] build finished");
+    } else {
+      // Build extension and webview code
+      await build(extensionConfig);
+      await build(webviewConfig);
+      console.log("build complete");
+    }
+  } catch (err) {
+    process.stderr.write(err.stderr);
+    process.exit(1);
+  }
+})();

@@ -36,12 +36,12 @@
 		"menus": {
 			"editor/title/context": [
 				{
-					"when": "sharedlock.state == 'locked' && sharedlock.isOwner && sharedlock.hasGit",
+					"when": "sharedlock.state == 'locked' && sharedlock.isOwner && sharedlock.hasGit && sharedlock.connected",
 					"command": "sharedlock.unlock",
 					"group": "sharedlock"
 				},
 				{
-					"when": "sharedlock.state != 'locked' && sharedlock.hasGit",
+					"when": "sharedlock.state != 'locked' && sharedlock.hasGit && sharedlock.connected",
 					"command": "sharedlock.lock",
 					"group": "sharedlock"
 				}
@@ -50,19 +50,34 @@
 				{
 					"command": "sharedlock.wipeLocked",
 					"group": "navigation@0",
-					"when": "view == sharedlock.locksView && sharedlock.hasGit"
+					"when": "view == sharedlock.locksView && sharedlock.hasGit && sharedlock.connected"
+				},
+				{
+					"command": "sharedlock.settings",
+					"group": "navigation@1",
+					"when": "view == sharedlock.locksView"
+				},
+				{
+					"command": "sharedlock.connect",
+					"group": "navigation@2",
+					"when": "view == sharedlock.locksView && !sharedlock.connected"
+				},
+				{
+					"command": "sharedlock.disconnect",
+					"group": "navigation@2",
+					"when": "view == sharedlock.locksView && sharedlock.connected"
 				}
 			],
 			"explorer/context": [
 				{
 					"command": "sharedlock.lockFolder",
 					"group": "1_modification",
-					"when": "explorerResourceIsFolder && sharedlock.hasGit"
+					"when": "explorerResourceIsFolder && sharedlock.hasGit && sharedlock.connected"
 				}
 			],
 			"view/item/context": [
 				{
-					"when": "viewItem == owned && sharedlock.hasGit",
+					"when": "viewItem == owned && sharedlock.hasGit && sharedlock.connected",
 					"command": "sharedlock.ctxUnlock",
 					"group": "sharedlock"
 				}
@@ -81,6 +96,21 @@
 				"command": "sharedlock.wipeLocked",
 				"title": "Wipe Owned Files",
 				"icon": "resources/icons/wipe.png"
+			},
+			{
+				"command": "sharedlock.settings",
+				"title": "Show Settings",
+				"icon": "resources/icons/settings.png"
+			},
+			{
+				"command": "sharedlock.connect",
+				"title": "Connect to team",
+				"icon": "resources/icons/disconnect40.png"
+			},
+			{
+				"command": "sharedlock.disconnect",
+				"title": "Disconnect from team",
+				"icon": "resources/icons/connect40.png"
 			},
 			{
 				"command": "sharedlock.lock",
@@ -108,8 +138,7 @@
 				{
 					"id": "sharedlock.locksView",
 					"name": "SharedLocks",
-					"type": "tree",
-					"when": "sharedlock.hasGit"
+					"type": "tree"
 				}
 			]
 		},
@@ -177,29 +206,30 @@
 			}
 		]
 	},
-	"main": "./dist/extension.js",
+	"main": "./out/extension.js",
 	"scripts": {
-		"dev": "npm run compile && npm run watch",
-		"compile": "tsc -p ./",
-		"lint": "eslint",
-		"watch": "tsc -watch -p ./",
-		"prewatch1": "npm run compile",
-		"build": "node esbuild.js --production",
-		"prebuild": "rimraf -rf ./dist",
-		"package": "vsce package",
-		"prepackage": "npm run build",
+		"compile": "node ./esbuild.js",
+		"lint": "eslint src --ext ts",
+		"watch": "node ./esbuild.js --watch",
+		"package": "NODE_ENV=production node ./esbuild.js",
 		"publish": "vsce publish",
-		"prepublish": "npm run build"
+		"prepublish": "npm run package"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.13.0",
 		"@stylistic/eslint-plugin": "^2.9.0",
+		"@types/glob": "^8.1.0",
 		"@types/micromatch": "^4.0.9",
 		"@types/node": "^20",
 		"@types/vscode": "^1.73.0",
-		"esbuild": "^0.24.0",
+		"@types/vscode-webview": "^1.57.5",
+		"@typescript-eslint/eslint-plugin": "^8.13.0",
+		"@typescript-eslint/parser": "^8.13.0",
+		"esbuild": "^0.16.17",
+		"esbuild-plugin-copy": "^2.1.1",
 		"eslint": "^9.13.0",
 		"eslint-config-vscode-ext": "^1.1.0",
+		"prettier": "^3.3.3",
 		"rimraf": "^6.0.1",
 		"terser-webpack-plugin": "^5.3.10",
 		"typescript": "^5.6.2",
@@ -208,6 +238,7 @@
 		"webpack-cli": "^5.1.4"
 	},
 	"dependencies": {
+		"@vscode/webview-ui-toolkit": "^1.4.0",
 		"glob": "^11.0.0",
 		"ioredis": "^5.4.1",
 		"micromatch": "^4.0.8",

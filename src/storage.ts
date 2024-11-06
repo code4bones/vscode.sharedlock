@@ -8,6 +8,7 @@ import { Tag,LockMessage, UIMessage, UIMessageType, UILockRequestMessage, UILock
 import { logger } from "./logger";
 import { existsSync } from "fs";
 import { getPathNS } from "./utils";
+import { getConfig } from "./utils/getConfig";
 
 export class Storage {
     private sub:Redis;
@@ -17,10 +18,12 @@ export class Storage {
     private ctx:vs.ExtensionContext;
     private folders:string[];
     private _enabled:boolean;
+    private _connected:boolean;
     private userChannel:string;
 
     _onDidLockChanged:vs.EventEmitter<LockMessage[]>;
     _onDidEnabledChanged:vs.EventEmitter<boolean>;
+    _onDidConnectionChanged:vs.EventEmitter<boolean>;
 
     get onDidLockChanged() {
         return this._onDidLockChanged.event;
@@ -28,6 +31,10 @@ export class Storage {
 
     get onDidEnabledChanged() {
         return this._onDidEnabledChanged.event;
+    }
+
+    get onDidConnectionChanged() {
+        return this._onDidConnectionChanged.event;
     }
 
     getTag() {
@@ -40,33 +47,62 @@ export class Storage {
 
     constructor(_ctx:vs.ExtensionContext) {        
         this.ctx = _ctx;
-
         this._onDidLockChanged = new vs.EventEmitter<LockMessage[]>();
         this._onDidEnabledChanged = new vs.EventEmitter<boolean>();
+        this._onDidConnectionChanged = new vs.EventEmitter<boolean>();
 
+        this.sub = new Redis({lazyConnect:true});
+        this.pub = new Redis({lazyConnect:true});
+
+        this._connected = false;
         this._enabled = false;
-        this.folders = JSON.parse(this.ctx.globalState.get("roots")!);         
-        const host = vs.workspace.getConfiguration().get("redisHost") as string;
-        const port = parseInt(vs.workspace.getConfiguration().get("redisPort")!);
-        const db   = parseInt(vs.workspace.getConfiguration().get("redisDB")!);
-        const username = vs.workspace.getConfiguration().get("redisUsername") as string;
-        const password = vs.workspace.getConfiguration().get("resisPassword") as string;
-        const connectOpts : RedisOptions = {
-            host,port,db,username,password,
-            connectionName:"SHLCK",
-        };
-
-        console.log("Config",connectOpts,this.folders);
+        this.folders = JSON.parse(this.ctx.globalState.get("roots")!);  
 
         this.tag = this.getTag();
         this.userChannel = `${channelUI}.${this.tag.username}`;
+        this.startup();
+    }
+
+    set connected(en:boolean) {
+        if ( this._connected !== en ) {
+            this._connected = en;
+            this.enabled = en;
+            commands.executeCommand("setContext","sharedlock.connected",en);
+        }
+    }
+
+    get connected() {
+        return this._connected;
+    }
+
+    connect(en:boolean) {
+        if ( !en ) {
+            this._onDidLockChanged.fire([]);            
+            this.sub.disconnect(false);
+            this.pub.disconnect(false);
+            this.connected = false;
+            return;
+        }
+        const {redis} = getConfig() as any; 
+        const connectOpts : RedisOptions = {
+            host:redis.redisHost,
+            port:redis.redisPort,
+            db:redis.redisDB,            
+            maxRetriesPerRequest:5,
+            username:redis.redisUsername,
+            password:redis.redisPassword,
+            connectionName:"SHLCK",
+            autoResubscribe:false,
+        };
         this.sub = new Redis(connectOpts);
         this.pub = new Redis(connectOpts);
-        this.sub.on("connect",()=>{
-            let txt = `[redis]: Connection made to ${host}:${port}/${db} with auth ${username || '-'}/${password ||'-'}`;
+        console.log("Config",connectOpts,this.folders);
+
+        this.sub.on("ready",()=>{
+            let txt = `[redis]: Connection made to ${connectOpts.host}:${connectOpts.port}/${connectOpts.db} with auth ${connectOpts.username || '-'}/${connectOpts.password ||'-'}`;
             console.log(txt);
             logger.info(txt);
-            this.sub.subscribe(channelID,this.userChannel,(err,count) => {
+            this.sub!.subscribe(channelID,this.userChannel,(err,count) => {
                 if ( err ){
                     txt = `[redis] Failed to subscribe to channels ${channelID}: ${err.message}`;
                     logger.error(txt);
@@ -75,7 +111,11 @@ export class Storage {
                     txt = `[redis] Message bus started on ${channelID}/${this,this.userChannel} ( count ${count})`;
                     logger.info(txt);
                     console.log(txt);
-                    this.startup();
+                    this.connected = true;
+                    this.informLocksChanges()
+                    .then(()=>{
+                        this.setTabStatus();
+                    })
                 }
             });
             this.sub.on("message",(channel,msg)=>{
@@ -86,16 +126,24 @@ export class Storage {
                 }
             });            
         });
+        this.sub.on("close",()=>{
+            console.log("Connection closed !");
+            this.connected = false;
+        })
         this.sub.on("error",(e)=>{
             logger.error(`[redis]: ${e.name}:${e.message}`);
-            this.enabled = false;
+            this.connected = false;
         });
+
+    } 
+
+    get ready() {
+        return this.enabled && this.connected
     }
 
     startup() {
-        this.enabled = true;
         vs.window.onDidChangeActiveTextEditor((e)=>{
-            if ( !e?.document ) {
+            if ( !e?.document || !this.ready ) {
                 return;
             }
             const ns = this.ns;           
@@ -112,7 +160,7 @@ export class Storage {
             this._enabled = hasGit;
             vs.commands.executeCommand('setContext','sharedlock.hasGit',hasGit)
             .then(()=>{
-                this._onDidEnabledChanged.fire(hasGit);
+                this._onDidEnabledChanged.fire(hasGit && this.connected);
             });
         }
     }
@@ -208,7 +256,7 @@ export class Storage {
         return this.keys()
         .then((keys)=>{
             return Promise.all(
-                keys.map(file => this.getVal(file).then((tag) => ({file,tag,state:this.isMe(tag!) ? LockState.Owned : LockState.Locked}) as LockMessage))            
+                keys?.map(file => this.getVal(file).then((tag) => ({file,tag,state:this.isMe(tag!) ? LockState.Owned : LockState.Locked}) as LockMessage))            
             );
         });
     }
@@ -217,7 +265,7 @@ export class Storage {
         const data = await this.locks;
         const wiped = data.filter(m => this.isMe(m.tag));
         wiped.forEach((m)=>{
-            this.pub.del(m.file)
+            this.pub!.del(m.file)
             .then(()=>{
                 this.publish({state:LockState.Unlocked,file:m.file,tag:m.tag});
             });
@@ -226,7 +274,7 @@ export class Storage {
     }
 
     async ctxUnlock(msg:LockMessage) {
-        await this.pub.del(msg.file);
+        await this.pub?.del(msg.file);
         this.publish({state:LockState.Unlocked,file:msg.file,tag:msg.tag});
     }
 
@@ -247,19 +295,19 @@ export class Storage {
     }
 
     set(key:string,obj:Tag) {
-        if ( !this.enabled ) {
+        if ( !this.enabled && !this.connected ) {
             return;
         }
         const nskey = this.nsKey(key);
         logger.debug(`Locking file ${nskey}`);
-        return this.pub.set(nskey,JSON.stringify(obj));
+        return this.pub!.set(nskey,JSON.stringify(obj));
     }
 
     getVal(key:string) {
-        if (!this.enabled ) {
+        if (!this.enabled && !this.connected ) {
             return Promise.resolve(null);
         }
-        return this.pub.get(key)
+        return this.pub!.get(key)
         .then((res:string | null)=>{
             if ( res ) {
                 return JSON.parse(res) as Tag;
@@ -269,7 +317,7 @@ export class Storage {
     }
 
     get(key:string) {
-        return this.pub.get(this.nsKey(key))
+        return this.pub!.get(this.nsKey(key))
         .then((res:string | null)=>{
             if ( res ) {
                 return JSON.parse(res) as Tag;
@@ -284,19 +332,19 @@ export class Storage {
         }
         const nskey = this.nsKey(key);
         logger.debug(`Release file ${nskey}`);
-        return this.pub.del(nskey);
+        return this.pub!.del(nskey);
     }
 
     exists(key:string) {
         if (!this.enabled ) {
             return;
         }
-        return this.pub.exists(this.nsKey(key));
+        return this.pub!.exists(this.nsKey(key));
     }
 
     publish(obj:object) {
         logger.debug(`[redis]: Publish`,obj);
-        return this.pub.publish(channelID,JSON.stringify(obj));
+        return this.pub!.publish(channelID,JSON.stringify(obj));
     }
 
     isMe(tag:Tag) {
@@ -331,7 +379,7 @@ export class Storage {
             if ( root ) {
                 const key = uri!.path.substring(root!.length);
                 const tkey = `${ns}:${key}`;
-                return this.pub.exists(tkey)
+                return this.pub!.exists(tkey)
                 .then((ignore)=>{
                     if ( !ignore ) {
                         logger.info(`[${ns}] Locked [${key}]`);
@@ -384,7 +432,7 @@ export class Storage {
     }
 
     uiPub(tag:Tag,msg:UIMessage) {
-        return this.pub.publish(`${channelUI}.${tag.username}`,JSON.stringify(msg));
+        return this.pub!.publish(`${channelUI}.${tag.username}`,JSON.stringify(msg));
     }
 
     nsKey(key:string) {
@@ -510,7 +558,7 @@ export class Storage {
 
     public dispose() {
         console.log("Extension stopped.");
-        this.pub.disconnect(false);
-        this.sub.disconnect(false);
+        this.pub!.disconnect(false);
+        this.sub!.disconnect(false);
     }
 }

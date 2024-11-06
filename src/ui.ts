@@ -1,4 +1,4 @@
-import {ExtensionContext, StatusBarAlignment,StatusBarItem,window, ThemeColor } from "vscode";
+import {ExtensionContext, StatusBarAlignment,StatusBarItem,window, ThemeColor, commands } from "vscode";
 import { codicons } from "vscode-ext-codicons";
 import { Storage } from "./storage";
 
@@ -59,8 +59,11 @@ export class Controller {
     constructor(ctx:ExtensionContext) {
         this._storage = new Storage(ctx);
         this.statusBar = new StatusBar(ctx);
-        this.statusBar.update(C.LockState.Unlocked);
+        // this.statusBar.update(C.LockState.Unlocked);
         ctx.subscriptions.push(this.statusBar,this.storage);
+        this._storage.onDidConnectionChanged(connected => {
+            this.statusBar.enable(connected);
+        });
         this._storage.onDidEnabledChanged((enable)=>{
             this.statusBar.enable(enable);
         });
@@ -93,6 +96,10 @@ export class Controller {
 
     ctxUnlock(msg:LockMessage) {
         this._storage.ctxUnlock(msg);
+    }
+
+    connect(en:boolean) {
+        this._storage.connect(en);
     }
 
     async initialUpdate() {

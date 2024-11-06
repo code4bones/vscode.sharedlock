@@ -15,6 +15,9 @@ export enum LockCommands {
     ctxUnlock = `${name}.ctxUnlock`,
     ctxOpen = `${name}.ctxOpen`,
     lockFolder = `${name}.lockFolder`,
+    settings = `${name}.settings`,
+    connect = `${name}.connect`,
+    disconnect = `${name}.disconnect`,
 }
 
 export enum LockState {

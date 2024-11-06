@@ -7,6 +7,7 @@ import * as fs from "fs";
 import {glob} from "glob";
 import mm from "micromatch";
 import { logger } from "./logger";
+import { SettingsPanel } from "./settings/SettingsPanel";
 
 export function registerCommands(ctx:vscode.ExtensionContext)  {
     const ctrl = new Controller(ctx);
@@ -88,6 +89,11 @@ export function registerCommands(ctx:vscode.ExtensionContext)  {
       });
     }
 
+    /*
+      connect / Disconnect
+    */
+      ctx.subscriptions.push(vscode.commands.registerCommand(C.LockCommands.connect,() => ctrl.connect(true)));
+      ctx.subscriptions.push(vscode.commands.registerCommand(C.LockCommands.disconnect,() => ctrl.connect(false)));
 
     /*
       Status bar toggler
@@ -113,6 +119,10 @@ export function registerCommands(ctx:vscode.ExtensionContext)  {
     */
     ctx.subscriptions.push(vscode.commands.registerCommand(C.LockCommands.ctxOpen,(args) => ctxOpen(args)));
 
+    /*
+      WebView
+    */
+    ctx.subscriptions.push(vscode.commands.registerCommand(C.LockCommands.settings,() => SettingsPanel.render(ctx)));
 
     return ctrl;
 }

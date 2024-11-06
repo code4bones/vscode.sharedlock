@@ -1,0 +1,22 @@
+
+.test {
+    border:2px solid rgb(0, 238, 255); 
+}
+
+.cont-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.cont-row {
+    display: flex;
+    flex-direction: row;
+}
+
+.spacer {
+    margin-left: 10px;
+}
+
+#redis-test {
+    margin:10px 0;
+}
