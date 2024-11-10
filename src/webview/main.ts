@@ -1,6 +1,7 @@
-import { vsCodeCheckbox,vsCodePanelTab, vsCodeTextField,vsCodeButton } from "@vscode/webview-ui-toolkit";
+// import { vsCodeCheckbox,vsCodePanelTab, vsCodeTextField,vsCodeButton } from "@vscode/webview-ui-toolkit";
 import { provideVSCodeDesignSystem, Button } from "@vscode/webview-ui-toolkit";
 import * as ui from "@vscode/webview-ui-toolkit";
+import {configKeys, Settings} from "../config/config";
 
 provideVSCodeDesignSystem().register(
     ui.vsCodeButton(),
@@ -17,8 +18,15 @@ const vscode = acquireVsCodeApi();
 window.addEventListener("load", main);
 
 function main() {
-    const btnTestRedis = document.getElementById("redis-test") as Button;
-    btnTestRedis?.addEventListener("click", testRedisConnection);
+    const btnTestRedis = document.getElementById("redis-save") as Button;
+    btnTestRedis?.addEventListener("click", () => vscode.postMessage({command: "redis-test",payload:getConfig()}));
+
+    const btnTestSSH = document.getElementById("ssh-save") as Button;
+    btnTestSSH?.addEventListener("click", () => vscode.postMessage({command: "ssh-test",payload:getConfig()}));
+
+    const chkTunnel = document.getElementById("common-tunnel") as ui.Checkbox
+    chkTunnel?.addEventListener("click", () => vscode.postMessage({command: "toggle-tunnel",payload:getConfig()}));
+
     setVSCodeMessageListener();
 
     vscode.postMessage({command: "get-config"});
@@ -26,28 +34,39 @@ function main() {
 
 
 
-function testRedisConnection() {
-    vscode.postMessage({command: "test-redis",payload:getConfig()});
-}
-
 function getConfig() {
-    const redisKeys = ["redisHost","redisPort","redisDB","redisUsername","redisPassword"];
-    const redis = redisKeys.reduce((agg,k)=>({
-        ...agg,[k]:(document.getElementById(k) as ui.TextField).value
-    }),{});
+    const redis = configKeys.configRedisKeys.reduce((agg,k)=>({
+        ...agg,[k]:(document.getElementById(`redis-${k}`) as ui.TextField)?.value
+    }),{}) as Settings["redis"];
+    const ssh = configKeys.configSshKeys.reduce((agg,k)=>({
+        ...agg,[k]:(document.getElementById(`ssh-${k}`) as ui.TextField)?.value
+    }),{}) as Settings["ssh"];
+    const common = configKeys.configCommonKeys.reduce((agg,k)=>({
+        ...agg,[k]:(document.getElementById(`common-${k}`) as ui.Checkbox)?.checked
+    }),{}) as Settings["common"];
     return {
         redis,
+        common,
+        ssh,
     }
 }
 
-function setConfig(cfg) {
+function setConfig(cfg:Settings) {
     console.log("setConfig",cfg);
-    Object.entries(cfg.redis).map(([k,v])=>{
-        const el = document.getElementById(k) as ui.TextField;
-        if ( el )
-            el.value = `${v}`
-        })
-
+    const setValue = (names:string[]) => {
+        names.forEach(name => Object.entries(cfg[name]).map(([k,v])=>{
+            const el = document.getElementById(`${name}-${k}`)!;
+            switch ( el.id ) {
+                case "common-tunnel":
+                    (el as ui.Checkbox).checked = Boolean(v);
+                    break;
+                default:
+                    (el as ui.TextField).value = `${v}`
+                    break;
+            }
+        }))
+    }
+    setValue(["ssh","redis","common"]);
 }
 
 function setVSCodeMessageListener() {

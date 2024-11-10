@@ -171,40 +171,74 @@
 				}
 			}
 		],
-		"configuration": [
-			{
-				"title": "SharedLock",
-				"type": "object",
-				"properties": {
-					"redisHost": {
-						"title": "Host",
-						"type": "string",
-						"default": "127.0.0.1",
-						"order": 1,
-						"markdownDescription": "Redis server name or local instance"
-					},
-					"redisPort": {
-						"type": "integer",
-						"default": 6379,
-						"order": 2
-					},
-					"redisDB": {
-						"type": "integer",
-						"default": 1,
-						"order": 3,
-						"markdownDescription": "All memebers in project must set the same value"
-					},
-					"redisUsername": {
-						"type": "string",
-						"order": 4
-					},
-					"redisPassword": {
-						"type": "string",
-						"order": 5
-					}
+		"configuration": {
+			"title": "SharedLock Settings",
+			"properties": {
+				"sharedlock.common-tunnel": {
+					"description": "Use SSH Tunnel to redis server",
+					"type": "boolean",
+					"default": true
+				},
+				"sharedlock.redis-host": {
+					"title": "Host",
+					"type": "string",
+					"default": "127.0.0.1",
+					"order": 1,
+					"markdownDescription": "Redis server name or local instance"
+				},
+				"sharedlock.redis-port": {
+					"type": "integer",
+					"default": 6379,
+					"order": 2
+				},
+				"sharedlock.redis-db": {
+					"type": "integer",
+					"default": 1,
+					"order": 3,
+					"markdownDescription": "All memebers in project must set the same value"
+				},
+				"sharedlock.redis-username": {
+					"type": "string",
+					"order": 4
+				},
+				"sharedlock.redis-password": {
+					"type": "string",
+					"order": 5
+				},
+				"sharedlock.ssh-host": {
+					"type": "string",
+					"default": "",
+					"description": "Host"
+				},
+				"sharedlock.ssh-port": {
+					"type": "integer",
+					"description": "Port",
+					"default": 22
+				},
+				"sharedlock.ssh-username": {
+					"type": "string",
+					"description": "Username"
+				},
+				"sharedlock.ssh-password": {
+					"type": "string",
+					"description": "Password"
+				},
+				"sharedlock.ssh-privateKey": {
+					"type": "string",
+					"description": "Privatekey"
+				},
+				"sharedlock.ssh-remoteRedisPort": {
+					"type": "number",
+					"default": 6379,
+					"description": "Remote Redis Port"
+				},
+				"sharedlock.ssh-localRedisPort": {
+					"type": "number",
+					"default": 6379,
+					"description": "Bind to local port"
 				}
 			}
-		]
+		}
 	},
 	"main": "./out/extension.js",
 	"scripts": {
@@ -221,6 +255,7 @@
 		"@types/glob": "^8.1.0",
 		"@types/micromatch": "^4.0.9",
 		"@types/node": "^20",
+		"@types/ssh2": "^1.15.1",
 		"@types/vscode": "^1.73.0",
 		"@types/vscode-webview": "^1.57.5",
 		"@typescript-eslint/eslint-plugin": "^8.13.0",
@@ -242,6 +277,8 @@
 		"glob": "^11.0.0",
 		"ioredis": "^5.4.1",
 		"micromatch": "^4.0.8",
+		"ssh-tunneling": "^1.1.23",
+		"ssh2": "^1.16.0",
 		"vscode-ext-codicons": "^1.6.0"
 	}
 }

@@ -1,9 +1,13 @@
 import {ExtensionContext, StatusBarAlignment,StatusBarItem,window, ThemeColor, commands } from "vscode";
 import { codicons } from "vscode-ext-codicons";
 import { Storage } from "./storage";
+import { Server } from "net";
 
 import * as C from "./conts";
 import { LockMessage } from "./types";
+import { loadConfig } from "./utils/getConfig";
+import { createTunnel } from "./utils/tunnel";
+import { logger } from "./logger";
 
 export class StatusBar {
     private item:StatusBarItem;
@@ -54,6 +58,7 @@ export class StatusBar {
 export class Controller {
     private statusBar:StatusBar;
     private _storage:Storage;
+    private _server?:Server;
 
     
     constructor(ctx:ExtensionContext) {
@@ -99,7 +104,31 @@ export class Controller {
     }
 
     connect(en:boolean) {
-        this._storage.connect(en);
+        const cfg = loadConfig();
+        if ( !en  ) {
+            console.log("Closing Tunnel !")
+            this._storage.connect(en);
+            if ( this._server && cfg.common.tunnel )
+                this._server.close(()=>{
+                    logger.info("Server closed")
+            });
+
+        } else {
+            if ( cfg.common.tunnel ) {
+                createTunnel(cfg)
+                .then((server)=>{
+                    logger.info("[ssh] Tunnel created")
+                    this._server = server;
+                    this._storage.connect(en);
+                })
+                .catch(e=>{
+                    logger.error(`[ssh] Tunnel failed: ${e}`);
+                    window.showErrorMessage(`SSH: ${e}`);
+                })
+            } else {
+                this._storage.connect(en);
+            }
+        }
     }
 
     async initialUpdate() {

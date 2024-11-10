@@ -1,16 +1,17 @@
 import Redis, {RedisOptions } from "ioredis";
 import { logger } from "../logger";
+import { Settings } from "../config/config";
 
-export async function testRedis(cfg:any) {
+export async function testRedis(cfg:Settings) {
     const {redis} = cfg;
     return new Promise((ok,cancel)=>{
         const opts:RedisOptions = {
-            host:redis.redisHost,
-            port:redis.redisPort,
-            db:redis.redisDB,            
+            host:redis.host,
+            port:redis.port,
+            db:redis.db,            
             maxRetriesPerRequest:1,
-            username:redis.redisUsername,
-            password:redis.redisPassword,
+            username:redis.username,
+            password:redis.password,
             reconnectOnError:()=>false,
         }
         const rd = new Redis(opts);

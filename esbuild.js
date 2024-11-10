@@ -19,7 +19,19 @@ const extensionConfig = {
   format: "cjs",
   entryPoints: ["./src/extension.ts"],
   outfile: "./out/extension.js",
+  loader:{
+    ".node":"copy"
+  },
   external: ["vscode"],
+  plugins:[
+    copy({
+      resolveFrom:"cwd",
+      assets:{
+        from:["./node_modules/ssh2/lib/**/*"],
+        to:["./out/lib"]
+      }
+    })
+  ]
 };
 
 // Config for webview source code (to be run in a web-based context)
@@ -80,8 +92,9 @@ const watchConfig = {
       console.log("[watch] build finished");
     } else {
       // Build extension and webview code
-      await build(extensionConfig);
-      await build(webviewConfig);
+      const loader = {".node":"copy"}
+      await build({...extensionConfig});
+      await build({...webviewConfig});
       console.log("build complete");
     }
   } catch (err) {

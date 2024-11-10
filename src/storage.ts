@@ -8,7 +8,7 @@ import { Tag,LockMessage, UIMessage, UIMessageType, UILockRequestMessage, UILock
 import { logger } from "./logger";
 import { existsSync } from "fs";
 import { getPathNS } from "./utils";
-import { getConfig } from "./utils/getConfig";
+import { loadConfig } from "./utils/getConfig";
 
 export class Storage {
     private sub:Redis;
@@ -83,14 +83,14 @@ export class Storage {
             this.connected = false;
             return;
         }
-        const {redis} = getConfig() as any; 
+        const {redis} = loadConfig(); 
         const connectOpts : RedisOptions = {
-            host:redis.redisHost,
-            port:redis.redisPort,
-            db:redis.redisDB,            
+            host:redis.host,
+            port:redis.port,
+            db:redis.db,            
             maxRetriesPerRequest:5,
-            username:redis.redisUsername,
-            password:redis.redisPassword,
+            username:redis.username,
+            password:redis.password,
             connectionName:"SHLCK",
             autoResubscribe:false,
         };

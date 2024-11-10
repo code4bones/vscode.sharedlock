@@ -1,8 +1,9 @@
 import * as vs from "vscode";
 import { getNonce } from "../utils/getNonce";
 import { getUri } from "../utils/getUri";
-import { getConfig, setConfig } from "../utils/getConfig";
+import { loadConfig, saveConfig } from "../utils/getConfig";
 import { testRedis } from "../utils/testRedis";
+import { createTunnel } from "../utils/tunnel";
 
 export class SettingsPanel {
     public static currentPanel: SettingsPanel | undefined;
@@ -44,24 +45,37 @@ export class SettingsPanel {
                 case "get-config":
                     webview.postMessage({
                         command:"set-config",
-                        payload:getConfig(),
+                        payload:loadConfig(),
                     });
                     break;
-                case "test-redis":
-                    testRedis(message.payload)
+                case "ssh-test":
+                  saveConfig(message.payload);
+                  createTunnel(message.payload)
+                  .then((server)=>{
+                      vs.window.showInformationMessage(`SSH connected`);
+                      server.close();
+                  })
+                  .catch((e)=>{
+                    vs.window.showErrorMessage(`SSH: ${e}`);
+                  })
+                  break;
+                case "redis-test":
+                  saveConfig(message.payload);
+                  testRedis(message.payload)
                     .then((res)=>{
                         if ( res ) { 
                             vs.window.showErrorMessage(`Cannot connect ${res}`);
                         } else {
                             vs.window.showInformationMessage(`Connected`);
                         }
-                        setConfig(message.payload);
                         webview.postMessage({
                             command:"redis-connect",
                             payload:res,
                         });
                     })
                     break;
+                  case 'toggle-tunnel':
+                      break;
               // Add more switch case statements here as more webview message commands
               // are created within the webview context (i.e. inside src/webview/main.ts)
             }
@@ -94,42 +108,54 @@ export class SettingsPanel {
                     <vscode-panel-tab id="redis-tab">Redis</vscode-panel-tab>
                     <vscode-panel-tab id="ssh-tab">SSH</vscode-panel-tab>
                     <vscode-panel-view id="redis-view">
+                        <div class="cont-col">
                         <div class="cont-row">
                             <section class="cont-col">
-                                <vscode-text-field id="redisHost" placeholder="127.0.0.1">Address</vscode-text-field>
-                                <vscode-text-field id="redisPort" type="number" placeholder="6379" size="50">Port</vscode-text-field>
-                                <vscode-text-field id="redisDB" type="number" placeholder="0" size="50">Database</vscode-text-field>
+                                <vscode-text-field id="redis-host" placeholder="127.0.0.1">Address</vscode-text-field>
+                                <vscode-text-field id="redis-port" type="number" placeholder="6379" size="50">Port</vscode-text-field>
+                                <vscode-text-field id="redis-db" type="number" placeholder="0" size="50">Database</vscode-text-field>
                             </section>
                             <section class="cont-col spacer">
-                                <vscode-text-field id="redisUsername" placeholder="none">Username</vscode-text-field>
-                                <vscode-text-field id="redisPassword" placeholder="none">Password</vscode-text-field>
-                                <p>
-                                <vscode-link id="redis-test">
-                                Test
-                                </vscode-link>
-                                connection !
-                                </p>
+                                <vscode-text-field id="redis-username" placeholder="none">Username</vscode-text-field>
+                                <vscode-text-field id="redis-password" placeholder="none">Password</vscode-text-field>
                             </section>
                         </div>
+                        <p>
+                        Save and
+                        <vscode-link id="redis-save">
+                        Test
+                        </vscode-link>
+                        Redis connection.
+                        </p>    
+                    </div>
                     </vscode-panel-view>
                     <vscode-panel-view id="ssh-view">
                     <section class="cont-col">
-                        <vscode-checkbox>Enable SSH Tunnel</vscode-checkbox>
+                        <vscode-checkbox id="common-tunnel">Enable SSH Tunnel</vscode-checkbox>
                         <section class="cont-row">
-                            <vscode-text-field id="sshHost" placeholder="127.0.0.1">Host</vscode-text-field>
-                            <vscode-text-field class="spacer" id="sshPort" type="number" placeholder="22" size="5" maxlength="5">
+                            <vscode-text-field id="ssh-host" placeholder="127.0.0.1">Host</vscode-text-field>
+                            <vscode-text-field class="spacer" id="ssh-port" type="number" placeholder="22" size="5" maxlength="5">
                                 Port
                             </vscode-text-field>
                         </section>
-                        <vscode-text-field id="sshLogin" size="10">Username</vscode-text-field>
-                        <vscode-text-field id="pubKey"   placeholder="$HOME/.ssh/id_rsa" size="50">Private key</vscode-text-field>
+                        <vscode-text-field id="ssh-username" size="10">Username</vscode-text-field>
+                        <vscode-text-field id="ssh-password" size="10">Password</vscode-text-field>
+                        <vscode-text-field id="ssh-privateKey"   placeholder="$HOME/.ssh/id_rsa" size="50">Private key</vscode-text-field>
 
                         <section class="cont-row">
-                            <vscode-text-field id="remoteRedisPost" type="number" placeholder="6379" size="10">Remote Redis Port</vscode-text-field>
-                            <vscode-text-field class="spacer" id="localRedisPort" type="number"  placeholder="6379" size="10">Bind to local port</vscode-text-field>
+                            <vscode-text-field id="ssh-remoteRedisPort" type="number" placeholder="6379" size="10">Remote Redis Port</vscode-text-field>
+                            <vscode-text-field id="ssh-localRedisPort" class="spacer"  type="number"  placeholder="6379" size="10">Bind to local port</vscode-text-field>
                         </section>
+                        <section>
+                        <p>
+                        Save and
+                        <vscode-link id="ssh-save">
+                        Test
+                        </vscode-link>
+                        connection
+                        </p>
+                </section>
                     </section>
-
                     </vscode-panel-view>
                 </vscode-panels>
               <section>
