@@ -1,4 +1,4 @@
-import {ConfigurationTarget, ExtensionContext,workspace} from "vscode";
+import {ExtensionContext,workspace} from "vscode";
 import { configRedisKeys,configSshKeys,configCommonKeys,Settings } from "../config/config";
 
 

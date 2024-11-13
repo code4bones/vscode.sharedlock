@@ -49,33 +49,76 @@ export class SettingsPanel {
                     });
                     break;
                 case "ssh-test":
-                  saveConfig(message.payload);
+                  webview.postMessage({
+                    command:"update-state",
+                    payload:{
+                      id:'ssh-ring',
+                      action:'remove',
+                      class:'hidden'
+                    }
+                  });
+                  saveConfig(message.payload);                 
                   createTunnel(message.payload)
                   .then((server)=>{
-                      vs.window.showInformationMessage(`SSH connected`);
-                      server.close();
+                      if ( server ) {
+                        vs.window.showInformationMessage(`SSH Connection Successful`);
+                        server?.close()
+                      }
                   })
                   .catch((e)=>{
                     vs.window.showErrorMessage(`SSH: ${e}`);
+                  }).finally(()=>{
+                    webview.postMessage({
+                      command:"update-state",
+                      payload:{
+                        id:'ssh-ring',
+                        action:'add',
+                        class:'hidden'
+                      }
+                    });
                   })
                   break;
                 case "redis-test":
                   saveConfig(message.payload);
+                  webview.postMessage({
+                    command:"update-state",
+                    payload:{
+                      id:'redis-ring',
+                      action:'remove',
+                      class:'hidden'
+                    }
+                  });
                   testRedis(message.payload)
                     .then((res)=>{
                         if ( res ) { 
                             vs.window.showErrorMessage(`Cannot connect ${res}`);
                         } else {
-                            vs.window.showInformationMessage(`Connected`);
+                            vs.window.showInformationMessage(`Redis Connection Successful`);
                         }
                         webview.postMessage({
                             command:"redis-connect",
                             payload:res,
                         });
                     })
-                    break;
-                  case 'toggle-tunnel':
-                      break;
+                    .finally(()=>{
+                      webview.postMessage({
+                        command:"update-state",
+                        payload:{
+                          id:'redis-ring',
+                          action:'add',
+                          class:'hidden'
+                        }
+                      });
+                    })
+                break;
+                  
+                case 'toggle-tunnel':
+                    saveConfig(message.payload);
+                    webview.postMessage({
+                      command:"toggle-tunnel",
+                      payload:message.payload
+                  });
+                break;
               // Add more switch case statements here as more webview message commands
               // are created within the webview context (i.e. inside src/webview/main.ts)
             }
@@ -88,6 +131,7 @@ export class SettingsPanel {
     private _getWebviewContent(webview: vs.Webview, extensionUri: vs.Uri) {
         const webviewUri = getUri(webview, extensionUri, ["out", "webview.js"]);
         const cssStyle = webview.asWebviewUri(vs.Uri.joinPath(extensionUri, "out", "style.css"))
+        const imgUrl = webview.asWebviewUri(vs.Uri.joinPath(extensionUri, "out", "explorer-bar.png"))
         
         const nonce = getNonce();
     
@@ -98,7 +142,7 @@ export class SettingsPanel {
             <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+              <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
               <link rel="stylesheet" type="text/css" href="${cssStyle}" />
               <title>SharedLock Settings</title>
             </head>
@@ -120,13 +164,19 @@ export class SettingsPanel {
                                 <vscode-text-field id="redis-password" placeholder="none">Password</vscode-text-field>
                             </section>
                         </div>
-                        <p>
-                        Save and
-                        <vscode-link id="redis-save">
-                        Test
-                        </vscode-link>
-                        Redis connection.
-                        </p>    
+                        <vscode-checkbox id="common-autoconnect">AutoConnect on startup</vscode-checkbox>
+                        <p>                        
+                        <vscode-link id="redis-save">Test and Save</vscode-link>
+                        Redis<span id="via-ssh"> </span>Connection                                                
+                        </p>
+                        <div class="cont-row">
+                          <img src="${imgUrl}" width="400" />         
+                          <ul>                 
+                          <li>1. Show that settings screen</li>
+                          <li>2. Toggle connection</li>
+                          </ul>
+                        </div>                        
+                        <vscode-progress-ring id="redis-ring" class="hidden"></vscode-progress-ring>
                     </div>
                     </vscode-panel-view>
                     <vscode-panel-view id="ssh-view">
@@ -148,12 +198,11 @@ export class SettingsPanel {
                         </section>
                         <section>
                         <p>
-                        Save and
                         <vscode-link id="ssh-save">
-                        Test
+                        Test and Save
                         </vscode-link>
-                        connection
                         </p>
+                        <vscode-progress-ring id="ssh-ring" class="hidden"></vscode-progress-ring>                        
                 </section>
                     </section>
                     </vscode-panel-view>

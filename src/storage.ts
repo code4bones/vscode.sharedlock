@@ -86,8 +86,8 @@ export class Storage {
         const {redis} = loadConfig(); 
         const connectOpts : RedisOptions = {
             host:redis.host,
-            port:redis.port,
-            db:redis.db,            
+            port:+redis.port,
+            db:+redis.db,            
             maxRetriesPerRequest:5,
             username:redis.username,
             password:redis.password,
@@ -114,6 +114,7 @@ export class Storage {
                     this.connected = true;
                     this.informLocksChanges()
                     .then(()=>{
+                        console.log("INITIAL SET STATUS !")
                         this.setTabStatus();
                     })
                 }
@@ -291,7 +292,11 @@ export class Storage {
     }
 
     keys() {
-        return this.pub.keys(`${this.ns}:*`);
+        if ( this.enabled && this.connected ) {
+            return this.pub.keys(`${this.ns}:*`);
+        } else {
+            return Promise.resolve([]);
+        }
     }
 
     set(key:string,obj:Tag) {
@@ -375,9 +380,11 @@ export class Storage {
         const ns = getPathNS(oneFile,this.folders);
         const pendings = files.map((file)=>{
             const uri = vs.Uri.parse(file);
-            const root = this.getRoot(uri);
+            // const root = this.getRoot(uri);
+            const root = getPathNS(uri.path,this.folders);
             if ( root ) {
-                const key = uri!.path.substring(root!.length);
+                const index = uri.path.indexOf(root)
+                const key = uri!.path.substring(index);
                 const tkey = `${ns}:${key}`;
                 return this.pub!.exists(tkey)
                 .then((ignore)=>{
@@ -454,18 +461,41 @@ export class Storage {
             this.enabled = false;
             return;
         }
-        const root = this.getRoot(uri!);
+        const root = getPathNS(uri.path,this.folders);
         if ( !root ) {
             this.enabled = false;
             return;
         } 
-        const key = uri!.path.substring(root!.length);
-        // console.log("F>",uri.path);
-        // console.log("R>",root);
-        // console.log("K>",key);
+        const index = uri.path.indexOf(root)
+        const key = uri!.path.substring(index);
         return key;
     }
 
+    get ns() {
+
+        if ( !vs.window.activeTextEditor ) {
+            this.enabled = false;
+            return '';
+        }
+        const {uri} = vs.window.activeTextEditor.document;
+        const found = getPathNS(uri.path,this.folders);
+        if ( found ) {
+            this.enabled = true;
+            return found;
+        } else {
+            logger.warn(`No Repository found for: ${uri.path}`);
+            this.enabled = false;
+        }
+    }
+
+    public dispose() {
+        console.log("Disposed, Extension stopped.");
+        logger.warn("Extension Unloaded,stopping connections");
+        this.pub!.disconnect(false);
+        this.sub!.disconnect(false);
+    }
+
+    /*
     getRoot(file?:vs.Uri) {
         const levelUp = (dir:string) => {
             if ( dir === "/" ) {
@@ -498,27 +528,13 @@ export class Storage {
             return null;
         }
         const fsPath = file?.path || vs.window.activeTextEditor?.document?.uri?.path;
+        console.log("GET ROOT FOR",fsPath)
         const prs = path.parse(fsPath!);
         const found = levelUp(prs.dir);
+        console.log("FOUND ROOT",found);
         return found;
     }
-
-    get ns() {
-
-        if ( !vs.window.activeTextEditor ) {
-            this.enabled = false;
-            return '';
-        }
-        const {uri} = vs.window.activeTextEditor.document;
-        const found = getPathNS(uri.path,this.folders);
-        if ( found ) {
-            this.enabled = true;
-            return found;
-        } else {
-            logger.warn(`No Repository found for: ${uri.path}`);
-            this.enabled = false;
-        }
-    }
+    */
 
     /*
     async getGIT(file:vs.Uri) {
@@ -556,9 +572,4 @@ export class Storage {
     }
     */
 
-    public dispose() {
-        console.log("Extension stopped.");
-        this.pub!.disconnect(false);
-        this.sub!.disconnect(false);
-    }
 }

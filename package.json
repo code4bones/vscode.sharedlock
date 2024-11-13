@@ -2,7 +2,7 @@
 	"name": "sharedlock",
 	"displayName": "SharedLock",
 	"description": "Sharing file locks in workspace files via network",
-	"version": "0.3.13",
+	"version": "0.4.0",
 	"publisher": "code4bones",
 	"icon": "resources/icons/logo.png",
 	"repository": {
@@ -177,6 +177,16 @@
 				"sharedlock.common-tunnel": {
 					"description": "Use SSH Tunnel to redis server",
 					"type": "boolean",
+					"default": false
+				},
+				"sharedlock.common-autoconnect":{
+					"description": "Auto connect on startup",
+					"type": "boolean",
+					"default": false
+				},
+				"sharedlock.common-welcome":{
+					"description": "Welcome message / settings",
+					"type": "boolean",
 					"default": true
 				},
 				"sharedlock.redis-host": {
@@ -245,7 +255,8 @@
 		"compile": "node ./esbuild.js",
 		"lint": "eslint src --ext ts",
 		"watch": "node ./esbuild.js --watch",
-		"package": "NODE_ENV=production node ./esbuild.js",
+		"prepackage": "NODE_ENV=production node ./esbuild.js",
+		"package":"vsce package",
 		"publish": "vsce publish",
 		"prepublish": "npm run package"
 	},

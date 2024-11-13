@@ -6,7 +6,7 @@
 
 .vscode/**
 .vscode-test/**
-out/**
+# out/**
 node_modules/**
 src/**
 esbuild.js

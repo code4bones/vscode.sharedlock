@@ -1,5 +1,5 @@
 import { Settings } from "../config/config";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { Client, ConnectConfig } from "ssh2";
 import net from "net";
 
@@ -9,14 +9,17 @@ export function createSSH(cfg:Settings) {
         password:cfg.ssh.password,
         host:cfg.ssh.host,
         port:cfg.ssh.port,
-        privateKey:readFileSync(cfg.ssh.privateKey),
+        privateKey:existsSync(cfg.ssh.privateKey) ?  readFileSync(cfg.ssh.privateKey) : undefined,
     }
     const conn = new Client();
     return {conn,config};
 }
 
 export function createTunnel(cfg:Settings) {
-    return new Promise<net.Server>((resolve,reject)=>{
+    return new Promise<net.Server | undefined>((resolve,reject)=>{
+        if ( !cfg.common.tunnel ) {
+            return resolve(undefined);
+        }
         const {conn,config} = createSSH(cfg);
         console.log("Connecting...")
         conn.on("ready",()=>{
@@ -42,7 +45,8 @@ export function createTunnel(cfg:Settings) {
                 })
                 .on("close",()=>{
                     console.log("SERVER - closed");
-                    conn.end();
+                    conn.destroy()
+                    // conn.end();
                 })
                 .listen(cfg.ssh.localRedisPort,"127.0.0.1",()=>{
                     console.log("SERVER STARTED");

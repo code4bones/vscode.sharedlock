@@ -42,12 +42,24 @@ const webviewConfig = {
   format: "esm",
   entryPoints: ["./src/webview/main.ts"],
   outfile: "./out/webview.js",
+  loader:{
+    ".png":"copy"
+  },
   plugins: [
     // Copy webview css files to `out` directory unaltered
     copy({
+      verbose:false,
       resolveFrom: "cwd",
       assets: {
         from: ["./src/webview/*.css"],
+        to: ["./out"],
+      },
+    }),
+    copy({
+      verbose:false,
+      resolveFrom: "cwd",
+      assets: {
+        from: ["./resources/images/explorer-bar.png"],
         to: ["./out"],
       },
     }),
